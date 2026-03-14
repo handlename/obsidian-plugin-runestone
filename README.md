@@ -1,90 +1,147 @@
-# Obsidian Sample Plugin
+# Runestone
 
-This is a sample plugin for Obsidian (https://obsidian.md).
+Build and execute workflows on Obsidian Canvas.
 
-This project uses TypeScript to provide type checking and documentation.
-The repo depends on the latest plugin API (obsidian.d.ts) in TypeScript Definition format, which contains TSDoc comments describing what it does.
+Runestone turns canvas files into executable workflow diagrams. Nodes are notes with code blocks, edges define data flow, and execution supports sequential, parallel, conditional branching, and cycles.
 
-This sample plugin demonstrates some of the basic functionality the plugin API can do.
-- Adds a ribbon icon, which shows a Notice when clicked.
-- Adds a command "Open modal (simple)" which opens a Modal.
-- Adds a plugin setting tab to the settings page.
-- Registers a global click event and output 'click' to the console.
-- Registers a global interval which logs 'setInterval' to the console.
+## Features
 
-## First time developing plugins?
+- Execute shell commands or JavaScript from canvas nodes
+- Conditional branching with labeled edges
+- Parallel execution when nodes have multiple outgoing edges
+- Data flow between nodes via template syntax (`{{input[n].property}}`)
+- Real-time execution visualization on canvas (status colors and overlays)
+- Log panel with per-node stdout/stderr and duration
+- Cycle support with configurable iteration limits
+- Per-node error handling (stop or continue)
 
-Quick starting guide for new plugin devs:
+## Getting Started
 
-- Check if [someone already developed a plugin for what you want](https://obsidian.md/plugins)! There might be an existing plugin similar enough that you can partner up with.
-- Make a copy of this repo as a template with the "Use this template" button (login to GitHub if you don't see it).
-- Clone your repo to a local development folder. For convenience, you can place this folder in your `.obsidian/plugins/your-plugin-name` folder.
-- Install NodeJS, then run `npm i` in the command line under your repo folder.
-- Run `npm run dev` to compile your plugin from `main.ts` to `main.js`.
-- Make changes to `main.ts` (or create new `.ts` files). Those changes should be automatically compiled into `main.js`.
-- Reload Obsidian to load the new version of your plugin.
-- Enable plugin in settings window.
-- For updates to the Obsidian API run `npm update` in the command line under your repo folder.
+### Installation
 
-## Releasing new releases
+**Using [BRAT](https://github.com/TfTHacker/obsidian42-brat):**
 
-- Update your `manifest.json` with your new version number, such as `1.0.1`, and the minimum Obsidian version required for your latest release.
-- Update your `versions.json` file with `"new-plugin-version": "minimum-obsidian-version"` so older versions of Obsidian can download an older version of your plugin that's compatible.
-- Create new GitHub release using your new version number as the "Tag version". Use the exact version number, don't include a prefix `v`. See here for an example: https://github.com/obsidianmd/obsidian-sample-plugin/releases
-- Upload the files `manifest.json`, `main.js`, `styles.css` as binary attachments. Note: The manifest.json file must be in two places, first the root path of your repository and also in the release.
-- Publish the release.
+1. Install the BRAT plugin
+2. Add `handlename/obsidian-plugin-runestone` as a beta plugin in BRAT settings
 
-> You can simplify the version bump process by running `npm version patch`, `npm version minor` or `npm version major` after updating `minAppVersion` manually in `manifest.json`.
-> The command will bump version in `manifest.json` and `package.json`, and add the entry for the new version to `versions.json`
+**Manual:**
 
-## Adding your plugin to the community plugin list
+Copy `main.js`, `styles.css`, and `manifest.json` to `<vault>/.obsidian/plugins/runestone/`.
 
-- Check the [plugin guidelines](https://docs.obsidian.md/Plugins/Releasing/Plugin+guidelines).
-- Publish an initial version.
-- Make sure you have a `README.md` file in the root of your repo.
-- Make a pull request at https://github.com/obsidianmd/obsidian-releases to add your plugin.
+### Creating a Workflow
 
-## How to use
+1. Create a new canvas file (or use the "New workflow" command)
+2. Add note nodes to the canvas. Each note needs:
+   - Frontmatter with `runestone.type` set to `exec`, `script`, or `condition`
+   - A code block containing the command or script to run
+3. Connect nodes with edges to define execution order
+4. The node with no incoming edges becomes the start node
 
-- Clone this repo.
-- Make sure your NodeJS is at least v16 (`node --version`).
-- `npm i` or `yarn` to install dependencies.
-- `npm run dev` to start compilation in watch mode.
+### Running a Workflow
 
-## Manually installing the plugin
+- Open a canvas and click the play button in the view header
+- Or use the command palette: "Run current canvas"
+- Or right-click a node: "Runestone: Run from this node" (starts execution from that node)
+- Register workflows in settings to add dedicated commands
 
-- Copy over `main.js`, `styles.css`, `manifest.json` to your vault `VaultFolder/.obsidian/plugins/your-plugin-id/`.
+## Node Types
 
-## Improve code quality with eslint
-- [ESLint](https://eslint.org/) is a tool that analyzes your code to quickly find problems. You can run ESLint against your plugin to find common bugs and ways to improve your code. 
-- This project already has eslint preconfigured, you can invoke a check by running`npm run lint`
-- Together with a custom eslint [plugin](https://github.com/obsidianmd/eslint-plugin) for Obsidan specific code guidelines.
-- A GitHub action is preconfigured to automatically lint every commit on all branches.
+### exec
 
-## Funding URL
+Executes a shell command. The first code block in the note body is run as a shell command. stdout must be valid JSON, which becomes the node output.
 
-You can include funding URLs where people who use your plugin can financially support it.
+````markdown
+---
+runestone.type: exec
+---
 
-The simple way is to set the `fundingUrl` field to your link in your `manifest.json` file:
-
-```json
-{
-    "fundingUrl": "https://buymeacoffee.com"
-}
+```bash
+echo '{"message": "hello"}'
 ```
+````
 
-If you have multiple URLs, you can also do:
+### script
 
-```json
-{
-    "fundingUrl": {
-        "Buy Me a Coffee": "https://buymeacoffee.com",
-        "GitHub Sponsor": "https://github.com/sponsors",
-        "Patreon": "https://www.patreon.com/"
-    }
-}
+Executes JavaScript asynchronously. Available variables: `app` (Obsidian App instance) and `input` (array of outputs from upstream nodes). The return value becomes the node output.
+
+````markdown
+---
+runestone.type: script
+---
+
+```javascript
+const result = input[0].message.toUpperCase();
+return { result };
 ```
+````
 
-## API Documentation
+### condition
 
-See https://docs.obsidian.md
+Evaluates JavaScript and returns a value that is stringified and matched against outgoing edge labels. Must have at least 2 outgoing edges, each with a label. Available variables: `app` and `input` (same as script). The original `input` is passed through to the next node, not the condition's return value.
+
+````markdown
+---
+runestone.type: condition
+---
+
+```javascript
+return input[0].count > 10 ? "high" : "low";
+```
+````
+
+Workflows may contain cycles. Every cycle must include a condition node with at least one exit edge leading outside the cycle.
+
+## Frontmatter Reference
+
+All properties use the `runestone.` prefix. Properties without this prefix are ignored.
+
+### Common Properties
+
+| Property | Values | Default | Description |
+|---|---|---|---|
+| `runestone.type` | `exec`, `script`, `condition` | (required) | Node type |
+| `runestone.onError` | `stop`, `continue` | `stop` | Error handling strategy |
+
+- `stop`: abort the entire workflow and skip all remaining nodes
+- `continue`: skip only the downstream nodes of the failed node; other branches continue
+
+### exec-Specific Properties
+
+| Property | Description |
+|---|---|
+| `runestone.exec.workdir` | Working directory for the command |
+| `runestone.exec.shell` | Shell to use (e.g., `/bin/bash`) |
+| `runestone.exec.env.<NAME>` | Environment variable (e.g., `runestone.exec.env.API_KEY: "xxx"`) |
+
+All exec-specific properties are optional. Defaults come from plugin settings or system defaults.
+
+## Template Syntax
+
+Nodes can reference outputs from upstream nodes using `{{input[n].property}}`.
+
+- `input` is an array of outputs from all incoming edges
+- All expressions must start with `input`
+- Supports dot notation and bracket notation: `{{input[0].data.items[1].name}}`
+- Multiple templates in one string: `echo '{"a": "{{input[0].x}}", "b": "{{input[1].y}}"}'`
+- Strings are passed as-is; numbers and booleans are converted to strings; objects and arrays are converted to JSON
+
+Start nodes (no incoming edges) cannot use template syntax.
+
+## Settings
+
+| Setting | Description | Default |
+|---|---|---|
+| Default working directory | Default `cwd` for exec nodes | Vault root |
+| Default shell | Default shell for exec nodes | System default |
+| Maximum cycle iterations | Prevents infinite loops in cyclic workflows | 1000 |
+| Registered workflows | Named workflows with dedicated commands | (none) |
+
+## Development
+
+```bash
+npm install
+npm run dev      # Watch mode compilation
+npm run build    # Production build
+npm run test     # Run tests (vitest)
+npm run lint     # Lint with ESLint
+```
