@@ -1,5 +1,10 @@
 export class App {
-	vault = { getAbstractFileByPath: () => null, read: async () => "", adapter: { basePath: "/tmp" } };
+	vault = {
+		getAbstractFileByPath: () => null,
+		read: async () => "",
+		adapter: { basePath: "/tmp" },
+		create: async (_path: string, _content: string) => new TFile(),
+	};
 	workspace = {
 		getActiveFile: () => null,
 		getActiveViewOfType: () => null,
@@ -8,6 +13,12 @@ export class App {
 		getRightLeaf: (_split: boolean) => null,
 		revealLeaf: (_leaf: unknown) => {},
 		openLinkText: async (_link: string, _source: string) => {},
+		getLeaf: (_newLeaf?: boolean) => ({
+			openFile: async (_file: unknown) => {},
+			setViewState: async (_state: unknown) => {},
+			view: null,
+		}),
+		on: (_event: string, _callback: (...args: unknown[]) => void) => ({}),
 	};
 	metadataCache = { getFileCache: () => null };
 }
@@ -28,10 +39,15 @@ export class Plugin {
 	addCommand = (_cmd: unknown) => {};
 	addSettingTab = (_tab: unknown) => {};
 	registerView = (_type: string, _factory: unknown) => {};
+	registerEvent = (_event: unknown) => {};
 }
 
 export class PluginSettingTab {
-	containerEl = { empty: () => {} };
+	containerEl = {
+		empty: () => {},
+		createEl: (_tag: string, _opts?: unknown) => ({}),
+		createDiv: (_opts?: unknown) => ({ empty: () => {} }),
+	};
 	constructor(public app: unknown, public plugin: unknown) {}
 	display() {}
 }
@@ -42,6 +58,26 @@ export class Setting {
 	setDesc(_d: string) { return this; }
 	addText(_cb: unknown) { return this; }
 	addToggle(_cb: unknown) { return this; }
+	addExtraButton(_cb: unknown) { return this; }
+	addButton(_cb: unknown) { return this; }
+}
+
+export class Modal {
+	app: App;
+	contentEl = {
+		empty: () => {},
+		createEl: (_tag: string, _opts?: unknown) => ({}),
+		createDiv: (_opts?: unknown) => ({
+			empty: () => {},
+			createEl: (_tag: string, _opts?: unknown) => ({}),
+			createDiv: (_opts?: unknown) => ({}),
+		}),
+	};
+	constructor(app: App) { this.app = app; }
+	open() {}
+	close() {}
+	onOpen() {}
+	onClose() {}
 }
 
 export class ItemView {
