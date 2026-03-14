@@ -4,6 +4,7 @@ import {
 	parseRunestoneConfig,
 	extractCodeBlock,
 } from "./parser";
+import { extractFrontmatterBody } from "./builder";
 
 describe("parseCanvasJson", () => {
 	it("parses nodes and edges from valid canvas JSON", () => {
@@ -92,5 +93,19 @@ describe("extractCodeBlock", () => {
 	it("handles code block with no language specifier", () => {
 		const body = "```\ncode here\n```";
 		expect(extractCodeBlock(body)).toBe("code here");
+	});
+});
+
+describe("extractFrontmatterBody", () => {
+	it("extracts body after frontmatter", () => {
+		expect(extractFrontmatterBody("---\ntype: exec\n---\nbody here")).toBe("body here");
+	});
+
+	it("returns full content when no frontmatter", () => {
+		expect(extractFrontmatterBody("just a body")).toBe("just a body");
+	});
+
+	it("handles frontmatter with trailing newline", () => {
+		expect(extractFrontmatterBody("---\nkey: val\n---\n\nbody")).toBe("\nbody");
 	});
 });
