@@ -60,8 +60,8 @@ function parseExecConfig(
 	if (!hasWorkdir && !hasShell && !hasEnv) return null;
 
 	return {
-		...(hasWorkdir ? { workdir: workdir as string } : {}),
-		...(hasShell ? { shell: shell as string } : {}),
+		...(hasWorkdir ? { workdir: workdir } : {}),
+		...(hasShell ? { shell: shell } : {}),
 		...(hasEnv ? { env } : {}),
 	};
 }

@@ -1,4 +1,4 @@
-import { ParsedGraph, WorkflowGraph, WorkflowNode } from "../types";
+import { ParsedGraph, WorkflowGraph } from "../types";
 import { extractCodeBlock } from "./parser";
 
 const TEMPLATE_RE = /\{\{input/;

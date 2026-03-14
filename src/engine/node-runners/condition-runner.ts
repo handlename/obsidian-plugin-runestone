@@ -22,8 +22,7 @@ export async function runConditionNode(
 
 		const resolvedCode = resolveTemplates(code, input);
 
-		// eslint-disable-next-line @typescript-eslint/no-implied-eval
-		const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor as
+		const AsyncFunction = (async function () {}).constructor as
 			new (...args: string[]) => (...args: unknown[]) => Promise<unknown>;
 
 		const fn = new AsyncFunction("app", "input", resolvedCode);

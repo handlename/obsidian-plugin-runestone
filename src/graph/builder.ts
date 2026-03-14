@@ -1,6 +1,6 @@
 import { App, TFile } from "obsidian";
 import { ParsedGraph, WorkflowNode, WorkflowEdge, CanvasNode } from "../types";
-import { parseCanvasJson, parseRunestoneConfig, extractCodeBlock } from "./parser";
+import { parseCanvasJson, parseRunestoneConfig } from "./parser";
 
 export async function buildParsedGraph(app: App, canvasFilePath: string): Promise<ParsedGraph> {
 	const canvasFile = app.vault.getAbstractFileByPath(canvasFilePath);

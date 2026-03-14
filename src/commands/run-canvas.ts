@@ -11,23 +11,16 @@ import { NodeStatus, WorkflowNode, WorkflowEdge, ConditionResult } from "../type
 const LOG_PREFIX = "[Runestone]";
 
 export async function runCurrentCanvas(app: App, settings: RunestoneSettings): Promise<void> {
-	const activeLeaf = app.workspace.activeLeaf;
-	const viewType = (activeLeaf?.view as { getViewType?: () => string } | undefined)?.getViewType?.();
-	if (viewType !== "canvas") {
-		new Notice("Runestone: No canvas is currently open");
-		return;
-	}
-
 	const activeFile = app.workspace.getActiveFile();
 	if (!activeFile || !activeFile.path.endsWith(".canvas")) {
-		new Notice("Runestone: No canvas file is currently open");
+		new Notice("Runestone: no canvas file is currently open");
 		return;
 	}
 
 	const canvasPath = activeFile.path;
 	const canvasName = activeFile.basename;
 
-	console.log(`${LOG_PREFIX} Starting workflow: ${canvasName}`);
+	console.debug(`${LOG_PREFIX} Starting workflow: ${canvasName}`);
 	new Notice(`Runestone: Running ${canvasName}`);
 
 	try {
@@ -54,19 +47,19 @@ export async function runCurrentCanvas(app: App, settings: RunestoneSettings): P
 			graph,
 			{
 				runNode: async (node: WorkflowNode, input: readonly unknown[]) => {
-					console.log(`${LOG_PREFIX} Running node: ${node.filePath} (${node.config.type})`);
+					console.debug(`${LOG_PREFIX} Running node: ${node.filePath} (${node.config.type})`);
 					if (node.config.type === "exec") {
 						return runExecNode(node, input, execContext);
 					}
 					return runScriptNode(node, input, app);
 				},
 				runConditionNode: async (node: WorkflowNode, input: readonly unknown[], outEdges: readonly WorkflowEdge[]): Promise<ConditionResult> => {
-					console.log(`${LOG_PREFIX} Evaluating condition: ${node.filePath}`);
+					console.debug(`${LOG_PREFIX} Evaluating condition: ${node.filePath}`);
 					return runConditionNode(node, input, app, outEdges);
 				},
 				onNodeStatusChange: (nodeId: string, status: NodeStatus) => {
 					const node = graph.nodes.get(nodeId);
-					console.log(`${LOG_PREFIX} ${node?.filePath ?? nodeId}: ${status}`);
+					console.debug(`${LOG_PREFIX} ${node?.filePath ?? nodeId}: ${status}`);
 				},
 			},
 			{ maxCycleIterations: settings.maxCycleIterations },
@@ -75,8 +68,8 @@ export async function runCurrentCanvas(app: App, settings: RunestoneSettings): P
 		for (const result of results) {
 			const node = graph.nodes.get(result.nodeId);
 			const name = node?.filePath ?? result.nodeId;
-			console.log(`${LOG_PREFIX} ${name}: ${result.status} (${result.durationMs}ms)`);
-			if (result.stdout) console.log(`${LOG_PREFIX} ${name} stdout: ${result.stdout}`);
+			console.debug(`${LOG_PREFIX} ${name}: ${result.status} (${result.durationMs}ms)`);
+			if (result.stdout) console.debug(`${LOG_PREFIX} ${name} stdout: ${result.stdout}`);
 			if (result.stderr) console.error(`${LOG_PREFIX} ${name} stderr: ${result.stderr}`);
 			if (result.error) console.error(`${LOG_PREFIX} ${name} error: ${result.error}`);
 		}

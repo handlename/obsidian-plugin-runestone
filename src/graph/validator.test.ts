@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { validate } from "./validator";
-import { ParsedGraph, WorkflowNode, WorkflowEdge, RunestoneConfig } from "../types";
+import { ParsedGraph, WorkflowNode, WorkflowEdge } from "../types";
 
 function makeNode(id: string, type: "exec" | "script" | "condition", body = ""): WorkflowNode {
 	return {

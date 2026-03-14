@@ -40,10 +40,10 @@ export class RunestoneSettingTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName("Default shell")
-			.setDesc("Default shell for exec nodes. Leave empty to use the OS default.")
+			.setDesc("Default shell for exec nodes. Leave empty to use the system default.")
 			.addText((text) =>
 				text
-					.setPlaceholder("(OS default)")
+					.setPlaceholder("(os default)")
 					.setValue(this.plugin.settings.defaultShell)
 					.onChange(async (value) => {
 						this.plugin.settings = { ...this.plugin.settings, defaultShell: value };

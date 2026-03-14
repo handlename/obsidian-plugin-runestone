@@ -71,6 +71,7 @@ function buildEnv(
 	node: WorkflowNode,
 	input: readonly unknown[],
 ): Record<string, string> {
+	// eslint-disable-next-line no-undef
 	const env = { ...process.env } as Record<string, string>;
 	if (node.config.exec?.env) {
 		for (const [key, value] of Object.entries(node.config.exec.env)) {

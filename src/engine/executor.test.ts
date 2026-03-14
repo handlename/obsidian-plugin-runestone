@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { executeWorkflow, WorkflowCallbacks } from "./executor";
-import { WorkflowGraph, WorkflowNode, WorkflowEdge, NodeResult } from "../types";
+import { WorkflowGraph, WorkflowNode, WorkflowEdge } from "../types";
 
 function makeNode(id: string, type: "exec" | "script" | "condition", body = "", onError: "stop" | "continue" = "stop"): WorkflowNode {
 	return { id, filePath: `${id}.md`, config: { type, onError }, body };
@@ -196,7 +196,7 @@ describe("executeWorkflow", () => {
 			"start",
 		);
 		const executed: string[] = [];
-		const results = await executeWorkflow(graph, mockCallbacks({
+		await executeWorkflow(graph, mockCallbacks({
 			runNode: async (node, input) => {
 				executed.push(node.id);
 				return { nodeId: node.id, status: "success", output: {}, durationMs: 1 };
