@@ -238,6 +238,24 @@ describe("executeWorkflow", () => {
 		expect(successA?.hasResult).toBe(true);
 	});
 
+	it("starts execution from overridden start node", async () => {
+		const graph = makeGraph(
+			[makeNode("a", "exec"), makeNode("b", "exec"), makeNode("c", "exec")],
+			[makeEdge("e1", "a", "b"), makeEdge("e2", "b", "c")],
+			"a",
+		);
+		const executed: string[] = [];
+		const results = await executeWorkflow(graph, mockCallbacks({
+			runNode: async (node) => {
+				executed.push(node.id);
+				return { nodeId: node.id, status: "success", output: { from: node.id }, durationMs: 1 };
+			},
+		}), { maxCycleIterations: 1000, startNodeIdOverride: "b" });
+
+		expect(executed).toEqual(["b", "c"]);
+		expect(executed).not.toContain("a");
+	});
+
 	it("stops on max cycle iterations", async () => {
 		const graph = makeGraph(
 			[

@@ -12,6 +12,7 @@ export interface WorkflowCallbacks {
 
 export interface ExecutorOptions {
 	readonly maxCycleIterations: number;
+	readonly startNodeIdOverride?: string;
 }
 
 export async function executeWorkflow(
@@ -146,7 +147,8 @@ export async function executeWorkflow(
 		await Promise.all(promises);
 	}
 
-	await executeNode(graph.startNodeId, []);
+	const effectiveStartNodeId = options.startNodeIdOverride ?? graph.startNodeId;
+	await executeNode(effectiveStartNodeId, []);
 
 	for (const nodeId of graph.nodes.keys()) {
 		if (!results.has(nodeId)) {
