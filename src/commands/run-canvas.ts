@@ -21,104 +21,122 @@ export function cleanupVisualizer(): void {
 	activeVisualizer = null;
 }
 
-export async function runCurrentCanvas(app: App, settings: RunestoneSettings): Promise<void> {
-	if (isRunning) {
-		new Notice("Runestone: A workflow is already running");
-		return;
-	}
+interface ExecuteOptions {
+	readonly startNodeIdOverride?: string;
+}
 
-	const activeFile = app.workspace.getActiveFile();
-	if (!activeFile || !activeFile.path.endsWith(".canvas")) {
-		new Notice("Runestone: no canvas file is currently open");
-		return;
-	}
-
-	const canvasPath = activeFile.path;
-	const canvasName = activeFile.basename;
-
-	isRunning = true;
-
-	console.debug(`${LOG_PREFIX} Starting workflow: ${canvasName}`);
-	new Notice(`Runestone: Running ${canvasName}`);
-
+async function executeCanvasWorkflow(
+	app: App,
+	settings: RunestoneSettings,
+	canvasPath: string,
+	canvasName: string,
+	options: ExecuteOptions = {},
+): Promise<void> {
 	activeVisualizer?.cleanup();
 	const visualizer = new CanvasVisualizer();
 	activeVisualizer = visualizer;
 	const logPanel = await activateLogPanel(app);
 
-	try {
-		const parsed = await buildParsedGraph(app, canvasPath);
+	const parsed = await buildParsedGraph(app, canvasPath);
 
-		const validationResult = validate(parsed);
-		if (!validationResult.ok) {
-			const errorSummary = validationResult.errors.join("\n");
-			console.error(`${LOG_PREFIX} Validation failed:\n${errorSummary}`);
-			new Notice(`Runestone: Validation failed — ${validationResult.errors[0]}`);
-			return;
-		}
+	const validationResult = validate(parsed);
+	if (!validationResult.ok) {
+		const errorSummary = validationResult.errors.join("\n");
+		console.error(`${LOG_PREFIX} Validation failed:\n${errorSummary}`);
+		new Notice(`Runestone: Validation failed — ${validationResult.errors[0]}`);
+		return;
+	}
 
-		const graph = validationResult.graph;
-		const vaultPath = (app.vault.adapter as unknown as { basePath?: string }).basePath ?? "";
+	const graph = validationResult.graph;
 
-		const execContext: ExecContext = {
-			vaultPath,
-			defaultWorkdir: settings.defaultWorkdir || undefined,
-			defaultShell: settings.defaultShell || undefined,
-		};
+	if (options.startNodeIdOverride && !graph.nodes.has(options.startNodeIdOverride)) {
+		new Notice(`Runestone: Node "${options.startNodeIdOverride}" not found in workflow`);
+		return;
+	}
 
-		const executionState = createExecutionState(canvasName, graph.nodes);
-		visualizer.initialize(app, canvasPath);
+	const vaultPath = (app.vault.adapter as unknown as { basePath?: string }).basePath ?? "";
 
-		if (logPanel) {
-			logPanel.refresh(executionState);
-		}
+	const execContext: ExecContext = {
+		vaultPath,
+		defaultWorkdir: settings.defaultWorkdir || undefined,
+		defaultShell: settings.defaultShell || undefined,
+	};
 
-		const results = await executeWorkflow(
-			graph,
-			{
-				runNode: async (node: WorkflowNode, input: readonly unknown[]) => {
-					console.debug(`${LOG_PREFIX} Running node: ${node.filePath} (${node.config.type})`);
-					if (node.config.type === "exec") {
-						return runExecNode(node, input, execContext);
-					}
-					return runScriptNode(node, input, app);
-				},
-				runConditionNode: async (node: WorkflowNode, input: readonly unknown[], outEdges: readonly WorkflowEdge[]): Promise<ConditionResult> => {
-					console.debug(`${LOG_PREFIX} Evaluating condition: ${node.filePath}`);
-					return runConditionNode(node, input, app, outEdges);
-				},
-				onNodeStatusChange: (nodeId: string, status: NodeStatus, result?: NodeResult) => {
-					const node = graph.nodes.get(nodeId);
-					console.debug(`${LOG_PREFIX} ${node?.filePath ?? nodeId}: ${status}`);
+	const executionState = createExecutionState(canvasName, graph.nodes);
+	visualizer.initialize(app, canvasPath);
 
-					updateExecutionState(executionState, nodeId, status, result);
-					visualizer.updateNode(nodeId, executionState);
-					if (logPanel) {
-						logPanel.refresh(executionState);
-					}
-				},
+	if (logPanel) {
+		logPanel.refresh(executionState);
+	}
+
+	const results = await executeWorkflow(
+		graph,
+		{
+			runNode: async (node: WorkflowNode, input: readonly unknown[]) => {
+				console.debug(`${LOG_PREFIX} Running node: ${node.filePath} (${node.config.type})`);
+				if (node.config.type === "exec") {
+					return runExecNode(node, input, execContext);
+				}
+				return runScriptNode(node, input, app);
 			},
-			{ maxCycleIterations: settings.maxCycleIterations },
-		);
+			runConditionNode: async (node: WorkflowNode, input: readonly unknown[], outEdges: readonly WorkflowEdge[]): Promise<ConditionResult> => {
+				console.debug(`${LOG_PREFIX} Evaluating condition: ${node.filePath}`);
+				return runConditionNode(node, input, app, outEdges);
+			},
+			onNodeStatusChange: (nodeId: string, status: NodeStatus, result?: NodeResult) => {
+				const node = graph.nodes.get(nodeId);
+				console.debug(`${LOG_PREFIX} ${node?.filePath ?? nodeId}: ${status}`);
 
-		for (const result of results) {
-			const node = graph.nodes.get(result.nodeId);
-			const name = node?.filePath ?? result.nodeId;
-			console.debug(`${LOG_PREFIX} ${name}: ${result.status} (${result.durationMs}ms)`);
-			if (result.stdout) console.debug(`${LOG_PREFIX} ${name} stdout: ${result.stdout}`);
-			if (result.stderr) console.error(`${LOG_PREFIX} ${name} stderr: ${result.stderr}`);
-			if (result.error) console.error(`${LOG_PREFIX} ${name} error: ${result.error}`);
-		}
+				updateExecutionState(executionState, nodeId, status, result);
+				visualizer.updateNode(nodeId, executionState);
+				if (logPanel) {
+					logPanel.refresh(executionState);
+				}
+			},
+		},
+		{
+			maxCycleIterations: settings.maxCycleIterations,
+			startNodeIdOverride: options.startNodeIdOverride,
+		},
+	);
 
-		const successCount = results.filter((r) => r.status === "success").length;
-		const failedResult = results.find((r) => r.status === "failure");
+	for (const result of results) {
+		const node = graph.nodes.get(result.nodeId);
+		const name = node?.filePath ?? result.nodeId;
+		console.debug(`${LOG_PREFIX} ${name}: ${result.status} (${result.durationMs}ms)`);
+		if (result.stdout) console.debug(`${LOG_PREFIX} ${name} stdout: ${result.stdout}`);
+		if (result.stderr) console.error(`${LOG_PREFIX} ${name} stderr: ${result.stderr}`);
+		if (result.error) console.error(`${LOG_PREFIX} ${name} error: ${result.error}`);
+	}
 
-		if (failedResult) {
-			const failedNode = graph.nodes.get(failedResult.nodeId);
-			new Notice(`Runestone: Failed at ${failedNode?.filePath ?? failedResult.nodeId} — ${failedResult.error}`);
-		} else {
-			new Notice(`Runestone: Completed (${successCount} nodes executed)`);
-		}
+	const successCount = results.filter((r) => r.status === "success").length;
+	const failedResult = results.find((r) => r.status === "failure");
+
+	if (failedResult) {
+		const failedNode = graph.nodes.get(failedResult.nodeId);
+		new Notice(`Runestone: Failed at ${failedNode?.filePath ?? failedResult.nodeId} — ${failedResult.error}`);
+	} else {
+		new Notice(`Runestone: Completed (${successCount} nodes executed)`);
+	}
+}
+
+export async function runWorkflow(
+	app: App,
+	settings: RunestoneSettings,
+	canvasPath: string,
+	canvasName: string,
+): Promise<void> {
+	if (isRunning) {
+		new Notice("Runestone: A workflow is already running");
+		return;
+	}
+
+	isRunning = true;
+	console.debug(`${LOG_PREFIX} Starting workflow: ${canvasName}`);
+	new Notice(`Runestone: Running ${canvasName}`);
+
+	try {
+		await executeCanvasWorkflow(app, settings, canvasPath, canvasName);
 	} catch (e) {
 		const message = e instanceof Error ? e.message : String(e);
 		console.error(`${LOG_PREFIX} Workflow error: ${message}`);
@@ -126,4 +144,41 @@ export async function runCurrentCanvas(app: App, settings: RunestoneSettings): P
 	} finally {
 		isRunning = false;
 	}
+}
+
+export async function runWorkflowFromNode(
+	app: App,
+	settings: RunestoneSettings,
+	canvasPath: string,
+	canvasName: string,
+	startNodeId: string,
+): Promise<void> {
+	if (isRunning) {
+		new Notice("Runestone: A workflow is already running");
+		return;
+	}
+
+	isRunning = true;
+	console.debug(`${LOG_PREFIX} Starting workflow from node ${startNodeId}: ${canvasName}`);
+	new Notice(`Runestone: Running ${canvasName} from node`);
+
+	try {
+		await executeCanvasWorkflow(app, settings, canvasPath, canvasName, { startNodeIdOverride: startNodeId });
+	} catch (e) {
+		const message = e instanceof Error ? e.message : String(e);
+		console.error(`${LOG_PREFIX} Workflow error: ${message}`);
+		new Notice(`Runestone: Error — ${message}`);
+	} finally {
+		isRunning = false;
+	}
+}
+
+export async function runCurrentCanvas(app: App, settings: RunestoneSettings): Promise<void> {
+	const activeFile = app.workspace.getActiveFile();
+	if (!activeFile || !activeFile.path.endsWith(".canvas")) {
+		new Notice("Runestone: no canvas file is currently open");
+		return;
+	}
+
+	await runWorkflow(app, settings, activeFile.path, activeFile.basename);
 }
