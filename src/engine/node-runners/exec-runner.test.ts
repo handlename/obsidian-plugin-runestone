@@ -2,12 +2,12 @@ import { describe, it, expect } from "vitest";
 import { runExecNode } from "./exec-runner";
 import { WorkflowNode } from "../../types";
 
-function makeExecNode(body: string, config?: Partial<WorkflowNode["config"]>): WorkflowNode {
+function makeExecNode(code: string, config?: Partial<WorkflowNode["config"]>): WorkflowNode {
 	return {
 		id: "test-node",
 		filePath: "test.md",
 		config: { type: "exec", onError: "stop", ...config },
-		body,
+		body: `Some text\n\`\`\`shell\n${code}\n\`\`\`\nMore text`,
 	};
 }
 
@@ -61,5 +61,17 @@ describe("runExecNode", () => {
 		const node = makeExecNode('echo \'{"ok":true}\'');
 		const result = await runExecNode(node, [], { vaultPath: "/tmp" });
 		expect(result.durationMs).toBeGreaterThanOrEqual(0);
+	});
+
+	it("fails when no code block found", async () => {
+		const node: WorkflowNode = {
+			id: "test-node",
+			filePath: "test.md",
+			config: { type: "exec", onError: "stop" },
+			body: "no code block here",
+		};
+		const result = await runExecNode(node, [], { vaultPath: "/tmp" });
+		expect(result.status).toBe("failure");
+		expect(result.error).toContain("code block");
 	});
 });

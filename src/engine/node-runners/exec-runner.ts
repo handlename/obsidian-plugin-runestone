@@ -1,6 +1,7 @@
 import { exec } from "child_process";
 import { NodeResult, WorkflowNode } from "../../types";
 import { resolveTemplates } from "../../template/template";
+import { extractCodeBlock } from "../../graph/parser";
 
 export interface ExecContext {
 	readonly vaultPath: string;
@@ -15,7 +16,16 @@ export async function runExecNode(
 ): Promise<NodeResult> {
 	const startTime = Date.now();
 	try {
-		const command = resolveTemplates(node.body.trim(), input);
+		const code = extractCodeBlock(node.body);
+		if (!code) {
+			return {
+				nodeId: node.id,
+				status: "failure",
+				error: `No code block found in exec node "${node.id}" (${node.filePath})`,
+				durationMs: Date.now() - startTime,
+			};
+		}
+		const command = resolveTemplates(code, input);
 
 		const workdir = resolveOptional(node.config.exec?.workdir, input)
 			?? context.defaultWorkdir
