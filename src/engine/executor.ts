@@ -7,7 +7,7 @@ export interface WorkflowCallbacks {
 		input: readonly unknown[],
 		outgoingEdges: readonly WorkflowEdge[],
 	) => Promise<ConditionResult>;
-	onNodeStatusChange: (nodeId: string, status: NodeStatus) => void;
+	onNodeStatusChange: (nodeId: string, status: NodeStatus, result?: NodeResult) => void;
 }
 
 export interface ExecutorOptions {
@@ -58,7 +58,7 @@ export async function executeWorkflow(
 				durationMs: 0,
 			};
 			results.set(nodeId, errorResult);
-			callbacks.onNodeStatusChange(nodeId, "failure");
+			callbacks.onNodeStatusChange(nodeId, "failure", errorResult);
 			aborted = true;
 			return;
 		}
@@ -78,7 +78,7 @@ export async function executeWorkflow(
 		}
 
 		results.set(nodeId, result);
-		callbacks.onNodeStatusChange(nodeId, result.status);
+		callbacks.onNodeStatusChange(nodeId, result.status, result);
 
 		if (result.status === "failure") {
 			if (node.config.onError === "stop") {
@@ -134,7 +134,7 @@ export async function executeWorkflow(
 							durationMs: 0,
 						};
 						results.set(targetId, skipResult);
-						callbacks.onNodeStatusChange(targetId, "skipped");
+						callbacks.onNodeStatusChange(targetId, "skipped", skipResult);
 						skipDownstream(targetId, graph, outgoingEdges, results, callbacks);
 					} else {
 						promises.push(executeNode(targetId, inputs));
@@ -164,8 +164,9 @@ function skipAllPending(
 ): void {
 	for (const nodeId of graph.nodes.keys()) {
 		if (!results.has(nodeId)) {
-			results.set(nodeId, { nodeId, status: "skipped", durationMs: 0 });
-			callbacks.onNodeStatusChange(nodeId, "skipped");
+			const skipResult: NodeResult = { nodeId, status: "skipped", durationMs: 0 };
+			results.set(nodeId, skipResult);
+			callbacks.onNodeStatusChange(nodeId, "skipped", skipResult);
 		}
 	}
 }
@@ -180,8 +181,9 @@ function skipDownstream(
 	const edges = outgoingEdges.get(nodeId) ?? [];
 	for (const edge of edges) {
 		if (!results.has(edge.toNode)) {
-			results.set(edge.toNode, { nodeId: edge.toNode, status: "skipped", durationMs: 0 });
-			callbacks.onNodeStatusChange(edge.toNode, "skipped");
+			const skipResult: NodeResult = { nodeId: edge.toNode, status: "skipped", durationMs: 0 };
+			results.set(edge.toNode, skipResult);
+			callbacks.onNodeStatusChange(edge.toNode, "skipped", skipResult);
 			skipDownstream(edge.toNode, graph, outgoingEdges, results, callbacks);
 		}
 	}

@@ -214,6 +214,30 @@ describe("executeWorkflow", () => {
 		expect(executed).not.toContain("a");
 	});
 
+	it("passes NodeResult to onNodeStatusChange for terminal states", async () => {
+		const graph = makeGraph(
+			[makeNode("a", "exec"), makeNode("b", "exec")],
+			[makeEdge("e1", "a", "b")],
+			"a",
+		);
+		const statusChanges: { nodeId: string; status: string; hasResult: boolean }[] = [];
+		const results = await executeWorkflow(graph, mockCallbacks({
+			onNodeStatusChange: (nodeId, status, result) => {
+				statusChanges.push({ nodeId, status, hasResult: result !== undefined });
+			},
+		}), { maxCycleIterations: 1000 });
+
+		// "pending" and "running" should NOT have result
+		const pendingA = statusChanges.find((s) => s.nodeId === "a" && s.status === "pending");
+		expect(pendingA?.hasResult).toBe(false);
+		const runningA = statusChanges.find((s) => s.nodeId === "a" && s.status === "running");
+		expect(runningA?.hasResult).toBe(false);
+
+		// "success" SHOULD have result
+		const successA = statusChanges.find((s) => s.nodeId === "a" && s.status === "success");
+		expect(successA?.hasResult).toBe(true);
+	});
+
 	it("stops on max cycle iterations", async () => {
 		const graph = makeGraph(
 			[
