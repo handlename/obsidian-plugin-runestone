@@ -6,11 +6,27 @@ import { executeWorkflow } from "../engine/executor";
 import { runExecNode, ExecContext } from "../engine/node-runners/exec-runner";
 import { runScriptNode } from "../engine/node-runners/script-runner";
 import { runConditionNode } from "../engine/node-runners/condition-runner";
-import { NodeStatus, WorkflowNode, WorkflowEdge, ConditionResult } from "../types";
+import { NodeStatus, NodeResult, WorkflowNode, WorkflowEdge, ConditionResult } from "../types";
+import { createExecutionState, updateExecutionState } from "../ui/execution-state";
+import { CanvasVisualizer } from "../ui/canvas-visualizer";
+import { activateLogPanel } from "../ui/log-panel-view";
 
 const LOG_PREFIX = "[Runestone]";
 
+let isRunning = false;
+let activeVisualizer: CanvasVisualizer | null = null;
+
+export function cleanupVisualizer(): void {
+	activeVisualizer?.cleanup();
+	activeVisualizer = null;
+}
+
 export async function runCurrentCanvas(app: App, settings: RunestoneSettings): Promise<void> {
+	if (isRunning) {
+		new Notice("Runestone: A workflow is already running");
+		return;
+	}
+
 	const activeFile = app.workspace.getActiveFile();
 	if (!activeFile || !activeFile.path.endsWith(".canvas")) {
 		new Notice("Runestone: no canvas file is currently open");
@@ -20,8 +36,15 @@ export async function runCurrentCanvas(app: App, settings: RunestoneSettings): P
 	const canvasPath = activeFile.path;
 	const canvasName = activeFile.basename;
 
+	isRunning = true;
+
 	console.debug(`${LOG_PREFIX} Starting workflow: ${canvasName}`);
 	new Notice(`Runestone: Running ${canvasName}`);
+
+	activeVisualizer?.cleanup();
+	const visualizer = new CanvasVisualizer();
+	activeVisualizer = visualizer;
+	const logPanel = await activateLogPanel(app);
 
 	try {
 		const parsed = await buildParsedGraph(app, canvasPath);
@@ -43,6 +66,13 @@ export async function runCurrentCanvas(app: App, settings: RunestoneSettings): P
 			defaultShell: settings.defaultShell || undefined,
 		};
 
+		const executionState = createExecutionState(canvasName, graph.nodes);
+		visualizer.initialize(app, canvasPath);
+
+		if (logPanel) {
+			logPanel.refresh(executionState);
+		}
+
 		const results = await executeWorkflow(
 			graph,
 			{
@@ -57,9 +87,15 @@ export async function runCurrentCanvas(app: App, settings: RunestoneSettings): P
 					console.debug(`${LOG_PREFIX} Evaluating condition: ${node.filePath}`);
 					return runConditionNode(node, input, app, outEdges);
 				},
-				onNodeStatusChange: (nodeId: string, status: NodeStatus) => {
+				onNodeStatusChange: (nodeId: string, status: NodeStatus, result?: NodeResult) => {
 					const node = graph.nodes.get(nodeId);
 					console.debug(`${LOG_PREFIX} ${node?.filePath ?? nodeId}: ${status}`);
+
+					updateExecutionState(executionState, nodeId, status, result);
+					visualizer.updateNode(nodeId, executionState);
+					if (logPanel) {
+						logPanel.refresh(executionState);
+					}
 				},
 			},
 			{ maxCycleIterations: settings.maxCycleIterations },
@@ -87,5 +123,7 @@ export async function runCurrentCanvas(app: App, settings: RunestoneSettings): P
 		const message = e instanceof Error ? e.message : String(e);
 		console.error(`${LOG_PREFIX} Workflow error: ${message}`);
 		new Notice(`Runestone: Error — ${message}`);
+	} finally {
+		isRunning = false;
 	}
 }
