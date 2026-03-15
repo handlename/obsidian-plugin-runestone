@@ -62,7 +62,7 @@ echo '{"message": "hello"}'
 
 ### script
 
-Executes JavaScript asynchronously. Available variables: `app` (Obsidian App instance) and `input` (array of outputs from upstream nodes). The return value becomes the node output.
+Executes JavaScript asynchronously. Available variables: `app` (Obsidian App instance), `obsidian` (the `obsidian` module, e.g. `Modal`, `Notice`, `SuggestModal`), and `input` (array of outputs from upstream nodes). The return value becomes the node output.
 
 ````markdown
 ---
@@ -77,7 +77,7 @@ return { result };
 
 ### condition
 
-Evaluates JavaScript and returns a value that is stringified and matched against outgoing edge labels. Must have at least one labeled outgoing edge. An optional unlabeled edge serves as a default (like `default` in a switch statement) when no label matches. Available variables: `app` and `input` (same as script). The original `input` is passed through to the next node, not the condition's return value. Multiple labeled edges may point to the same target node.
+Evaluates JavaScript and returns a value that is stringified and matched against outgoing edge labels. Must have at least one labeled outgoing edge. An optional unlabeled edge serves as a default (like `default` in a switch statement) when no label matches. Available variables: `app`, `obsidian`, and `input` (same as script). The original `input` is passed through to the next node, not the condition's return value. Multiple labeled edges may point to the same target node.
 
 ````markdown
 ---

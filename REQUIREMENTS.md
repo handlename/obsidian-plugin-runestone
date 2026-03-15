@@ -18,14 +18,14 @@ Runestone is an Obsidian plugin. It allows users to build and execute workflows 
 
 - Specify `runestone.type: script` in the note's Frontmatter
 - Write JavaScript in a code block in the note body
-- Has access to the Obsidian API (e.g. `app` object)
+- Has access to the Obsidian API (e.g. `app` object, `obsidian` module)
 - The return value is passed as JSON input to the next node
 
 ### REQ-NODE-003: condition Node
 
 - Specify `runestone.type: condition` in the note's Frontmatter
 - Write JavaScript in a code block in the note body
-- Has access to the Obsidian API
+- Has access to the Obsidian API (e.g. `app` object, `obsidian` module)
 - Proceed along the output edge whose label matches the return value (string)
 - If no labeled edge matches, proceed along the unlabeled edge (default edge) if one exists
 - Error if no labeled edge matches and no default edge exists
