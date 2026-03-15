@@ -6,6 +6,7 @@ export async function runScriptNode(
 	node: WorkflowNode,
 	input: readonly unknown[],
 	app: unknown,
+	obsidianModule: unknown = {},
 ): Promise<NodeResult> {
 	const startTime = Date.now();
 	try {
@@ -24,8 +25,8 @@ export async function runScriptNode(
 		const AsyncFunction = (async function () {}).constructor as
 			new (...args: string[]) => (...args: unknown[]) => Promise<unknown>;
 
-		const fn = new AsyncFunction("app", "input", resolvedCode);
-		const result = await fn(app, input);
+		const fn = new AsyncFunction("app", "input", "obsidian", resolvedCode);
+		const result = await fn(app, input, obsidianModule);
 		const output = result === undefined ? null : result;
 
 		return {
