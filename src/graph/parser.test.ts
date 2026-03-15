@@ -25,6 +25,27 @@ describe("parseCanvasJson", () => {
 	it("throws on invalid JSON", () => {
 		expect(() => parseCanvasJson("not json")).toThrow();
 	});
+
+	it("preserves fromEnd and toEnd fields on edges", () => {
+		const json = JSON.stringify({
+			nodes: [
+				{ id: "n1", type: "file", file: "a.md", x: 0, y: 0, width: 100, height: 100 },
+				{ id: "n2", type: "file", file: "b.md", x: 200, y: 0, width: 100, height: 100 },
+			],
+			edges: [
+				{ id: "e1", fromNode: "n1", toNode: "n2", fromEnd: "none", toEnd: "none" },
+				{ id: "e2", fromNode: "n1", toNode: "n2", fromEnd: "none", toEnd: "arrow" },
+				{ id: "e3", fromNode: "n1", toNode: "n2" },
+			],
+		});
+		const result = parseCanvasJson(json);
+		expect(result.edges[0]!.fromEnd).toBe("none");
+		expect(result.edges[0]!.toEnd).toBe("none");
+		expect(result.edges[1]!.fromEnd).toBe("none");
+		expect(result.edges[1]!.toEnd).toBe("arrow");
+		expect(result.edges[2]!.fromEnd).toBeUndefined();
+		expect(result.edges[2]!.toEnd).toBeUndefined();
+	});
 });
 
 describe("parseRunestoneConfig", () => {
