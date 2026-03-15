@@ -68,6 +68,12 @@ Runestone is an Obsidian plugin. It allows users to build and execute workflows 
 
 - When multiple edges point to a single node, execution waits for all input sources to complete or be dismissed
 - Edges not selected by a condition node are dismissed and do not block join
+- Disabled (nondirectional) edges are excluded from join evaluation
+
+### REQ-GRAPH-006: Edge Disabling
+
+- Nondirectional edges (`fromEnd: "none"` and `toEnd: "none"`) are excluded from the workflow
+- Treated as non-existent during validation and execution
 
 ### REQ-GRAPH-005: Loops
 
@@ -86,6 +92,7 @@ The following are validated before workflow execution:
 4. Template syntax references are valid (e.g. `input` is not referenced in a node with no inputs)
 5. Condition nodes have at least one labeled output edge and at most one unlabeled (default) output edge
 6. Condition nodes contain a JavaScript code block in the note body
+7. Disabled (nondirectional) edges are excluded before validation (filtered during graph construction)
 
 ## Execution Triggers
 
@@ -159,6 +166,12 @@ The following are validated before workflow execution:
 ### REQ-UI-003: Obsidian Log Console Output
 
 - Output execution logs to the developer console
+
+### REQ-UI-005: Edge Execution Visualization
+
+- When Canvas is open, completed edges (traversed during execution) change color to green
+- Unexecuted and dismissed edges remain unchanged
+- Edge colors are reset to default during cleanup after workflow completion
 
 ### REQ-UI-004: Notice Notifications
 
