@@ -1,6 +1,10 @@
 import { App, TFile } from "obsidian";
-import { ParsedGraph, WorkflowNode, WorkflowEdge, CanvasNode } from "../types";
+import { ParsedGraph, WorkflowNode, WorkflowEdge, CanvasNode, CanvasEdge } from "../types";
 import { parseCanvasJson, parseRunestoneConfig } from "./parser";
+
+export function isNondirectionalEdge(edge: CanvasEdge): boolean {
+	return edge.fromEnd === "none" && edge.toEnd === "none";
+}
 
 export async function buildParsedGraph(app: App, canvasFilePath: string): Promise<ParsedGraph> {
 	const canvasFile = app.vault.getAbstractFileByPath(canvasFilePath);
@@ -35,12 +39,14 @@ export async function buildParsedGraph(app: App, canvasFilePath: string): Promis
 		});
 	}
 
-	const edges: WorkflowEdge[] = canvasData.edges.map((e) => ({
-		id: e.id,
-		fromNode: e.fromNode,
-		toNode: e.toNode,
-		...(e.label ? { label: e.label } : {}),
-	}));
+	const edges: WorkflowEdge[] = canvasData.edges
+		.filter((e) => !isNondirectionalEdge(e))
+		.map((e) => ({
+			id: e.id,
+			fromNode: e.fromNode,
+			toNode: e.toNode,
+			...(e.label ? { label: e.label } : {}),
+		}));
 
 	return { nodes, edges };
 }
