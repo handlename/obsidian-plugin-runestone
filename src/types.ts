@@ -24,6 +24,8 @@ export interface CanvasEdge {
 	readonly toNode: string;
 	readonly fromSide?: string;
 	readonly toSide?: string;
+	readonly fromEnd?: "none" | "arrow";
+	readonly toEnd?: "none" | "arrow";
 	readonly label?: string;
 }
 
