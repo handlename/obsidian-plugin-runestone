@@ -17,15 +17,21 @@ interface CanvasNodeInternal {
 	contentEl: HTMLElement;
 }
 
+interface CanvasEdgeInternal {
+	setColor(color: string): void;
+}
+
 interface CanvasViewInternal {
 	canvas: {
 		nodes: Map<string, CanvasNodeInternal>;
+		edges: Map<string, CanvasEdgeInternal>;
 	};
 	file: { path: string } | null;
 }
 
 export class CanvasVisualizer {
 	private canvasNodes: Map<string, CanvasNodeInternal> | null = null;
+	private canvasEdges: Map<string, CanvasEdgeInternal> | null = null;
 	private overlayElements: Map<string, HTMLElement> = new Map();
 	private timerInterval: ReturnType<typeof setInterval> | null = null;
 
@@ -42,6 +48,7 @@ export class CanvasVisualizer {
 
 		const view = canvasLeaf.view as unknown as CanvasViewInternal;
 		this.canvasNodes = view.canvas.nodes;
+		this.canvasEdges = view.canvas.edges;
 	}
 
 	updateNode(nodeId: string, state: ExecutionState): void {
@@ -59,6 +66,19 @@ export class CanvasVisualizer {
 			this.manageTimer(state);
 		} catch (e) {
 			console.error("[Runestone] Canvas visualization error:", e);
+		}
+	}
+
+	updateEdge(edgeId: string): void {
+		if (!this.canvasEdges) return;
+
+		const canvasEdge = this.canvasEdges.get(edgeId);
+		if (!canvasEdge) return;
+
+		try {
+			canvasEdge.setColor("4");
+		} catch (e) {
+			console.error("[Runestone] Canvas edge visualization error:", e);
 		}
 	}
 
@@ -83,7 +103,18 @@ export class CanvasVisualizer {
 			}
 		}
 
+		if (this.canvasEdges) {
+			for (const canvasEdge of this.canvasEdges.values()) {
+				try {
+					canvasEdge.setColor("");
+				} catch {
+					// Canvas edge may no longer exist
+				}
+			}
+		}
+
 		this.canvasNodes = null;
+		this.canvasEdges = null;
 	}
 
 	private updateOverlay(
