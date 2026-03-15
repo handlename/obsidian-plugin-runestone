@@ -28,10 +28,11 @@ export function validate(graph: ParsedGraph): ValidationResult {
 		}
 	}
 
-	// Single start node
+	// Single start node (exclude args nodes)
 	const startNodes: string[] = [];
 	for (const [nodeId, count] of incomingCount) {
-		if (count === 0) startNodes.push(nodeId);
+		const node = graph.nodes.get(nodeId);
+		if (count === 0 && node?.config.type !== "args") startNodes.push(nodeId);
 	}
 
 	if (startNodes.length === 0) {
@@ -86,6 +87,42 @@ export function validate(graph: ParsedGraph): ValidationResult {
 			if (!extractCodeBlock(node.body)) {
 				errors.push(
 					`Condition node "${node.id}" (${node.filePath}) must have a code block in the note body`,
+				);
+			}
+		}
+
+		if (node.config.type === "args") {
+			const incoming = incomingCount.get(node.id) ?? 0;
+			if (incoming > 0) {
+				errors.push(
+					`Args node "${node.id}" (${node.filePath}) must not have incoming edges`,
+				);
+			}
+
+			const outEdges = outgoingEdges.get(node.id) ?? [];
+			if (outEdges.length === 0) {
+				errors.push(
+					`Args node "${node.id}" (${node.filePath}) must have at least one outgoing edge`,
+				);
+			}
+
+			for (const edge of outEdges) {
+				const targetNode = graph.nodes.get(edge.toNode);
+				if (targetNode?.config.type === "args") {
+					errors.push(
+						`Args node "${node.id}" (${node.filePath}) must not connect to another args node "${edge.toNode}"`,
+					);
+				}
+				if (targetNode?.config.type === "exec") {
+					errors.push(
+						`Args node "${node.id}" (${node.filePath}) must not connect to exec node "${edge.toNode}"`,
+					);
+				}
+			}
+
+			if (!extractCodeBlock(node.body)) {
+				errors.push(
+					`Args node "${node.id}" (${node.filePath}) must have a code block in the note body`,
 				);
 			}
 		}

@@ -8,6 +8,7 @@ export async function runConditionNode(
 	app: unknown,
 	outgoingEdges: readonly WorkflowEdge[],
 	obsidianModule: unknown = {},
+	args: Readonly<Record<string, unknown>> = {},
 ): Promise<ConditionResult> {
 	const startTime = Date.now();
 	try {
@@ -26,8 +27,8 @@ export async function runConditionNode(
 		const AsyncFunction = (async function () {}).constructor as
 			new (...args: string[]) => (...args: unknown[]) => Promise<unknown>;
 
-		const fn = new AsyncFunction("app", "input", "obsidian", resolvedCode);
-		const returnValue = await fn(app, input, obsidianModule);
+		const fn = new AsyncFunction("app", "input", "obsidian", "args", resolvedCode);
+		const returnValue = await fn(app, input, obsidianModule, args);
 		const conditionValue = String(returnValue);
 
 		const labeledEdges = outgoingEdges.filter((e) => !!e.label);

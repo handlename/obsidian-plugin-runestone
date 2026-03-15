@@ -89,4 +89,15 @@ describe("runConditionNode", () => {
 		const result = await runConditionNode(node, [{}], {}, makeOutEdges());
 		expect(result.durationMs).toBeGreaterThanOrEqual(0);
 	});
+
+	it("passes args to condition script", async () => {
+		const node = makeConditionNode("return args.threshold > 5 ? 'high' : 'low';");
+		const edges = [
+			{ id: "e1", fromNode: "cond", toNode: "a", label: "high" },
+			{ id: "e2", fromNode: "cond", toNode: "b", label: "low" },
+		];
+		const result = await runConditionNode(node, [], {}, edges, {}, { threshold: 10 });
+		expect(result.status).toBe("success");
+		expect(result.selectedEdgeId).toBe("e1");
+	});
 });

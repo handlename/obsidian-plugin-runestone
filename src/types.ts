@@ -31,7 +31,7 @@ export interface CanvasEdge {
 
 // Internal types
 
-export type RunestoneNodeType = "exec" | "script" | "condition";
+export type RunestoneNodeType = "exec" | "script" | "condition" | "args";
 
 export interface RunestoneConfig {
 	readonly type: RunestoneNodeType;

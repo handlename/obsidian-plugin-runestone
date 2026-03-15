@@ -1,6 +1,6 @@
 import { CanvasData, RunestoneConfig, RunestoneNodeType } from "../types";
 
-const VALID_NODE_TYPES: readonly string[] = ["exec", "script", "condition"];
+const VALID_NODE_TYPES: readonly string[] = ["exec", "script", "condition", "args"];
 const CODE_BLOCK_RE = /```[^\n]*\n([\s\S]*?)```/;
 
 export function parseCanvasJson(json: string): CanvasData {

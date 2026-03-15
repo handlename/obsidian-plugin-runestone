@@ -1,13 +1,10 @@
 import { NodeResult, WorkflowNode } from "../../types";
-import { resolveTemplates } from "../../template/template";
 import { extractCodeBlock } from "../../graph/parser";
 
-export async function runScriptNode(
+export async function runArgsNode(
 	node: WorkflowNode,
-	input: readonly unknown[],
 	app: unknown,
 	obsidianModule: unknown = {},
-	args: Readonly<Record<string, unknown>> = {},
 ): Promise<NodeResult> {
 	const startTime = Date.now();
 	try {
@@ -16,24 +13,30 @@ export async function runScriptNode(
 			return {
 				nodeId: node.id,
 				status: "failure",
-				error: `No code block found in script node "${node.id}" (${node.filePath})`,
+				error: `No code block found in args node "${node.id}" (${node.filePath})`,
 				durationMs: Date.now() - startTime,
 			};
 		}
 
-		const resolvedCode = resolveTemplates(code, input);
-
 		const AsyncFunction = (async function () {}).constructor as
 			new (...args: string[]) => (...args: unknown[]) => Promise<unknown>;
 
-		const fn = new AsyncFunction("app", "input", "obsidian", "args", resolvedCode);
-		const result = await fn(app, input, obsidianModule, args);
-		const output = result === undefined ? null : result;
+		const fn = new AsyncFunction("app", "obsidian", code);
+		const result = await fn(app, obsidianModule);
+
+		if (result === null || result === undefined || typeof result !== "object" || Array.isArray(result)) {
+			return {
+				nodeId: node.id,
+				status: "failure",
+				error: `Args node "${node.id}" (${node.filePath}) must return a plain object, got ${Array.isArray(result) ? "array" : String(result)}`,
+				durationMs: Date.now() - startTime,
+			};
+		}
 
 		return {
 			nodeId: node.id,
 			status: "success",
-			output,
+			output: result,
 			durationMs: Date.now() - startTime,
 		};
 	} catch (e) {

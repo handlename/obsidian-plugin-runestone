@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { executeWorkflow, WorkflowCallbacks } from "./executor";
 import { WorkflowGraph, WorkflowNode, WorkflowEdge } from "../types";
 
-function makeNode(id: string, type: "exec" | "script" | "condition", body = "", onError: "stop" | "continue" = "stop"): WorkflowNode {
+function makeNode(id: string, type: "exec" | "script" | "condition" | "args", body = "", onError: "stop" | "continue" = "stop"): WorkflowNode {
 	return { id, filePath: `${id}.md`, config: { type, onError }, body };
 }
 
@@ -20,13 +20,13 @@ function makeGraph(nodes: WorkflowNode[], edges: WorkflowEdge[], startNodeId: st
 
 function mockCallbacks(overrides?: Partial<WorkflowCallbacks>): WorkflowCallbacks {
 	return {
-		runNode: async (node, input) => ({
+		runNode: async (node, input, args) => ({
 			nodeId: node.id,
 			status: "success",
 			output: { from: node.id },
 			durationMs: 1,
 		}),
-		runConditionNode: async (node, input, outEdges) => ({
+		runConditionNode: async (node, input, outEdges, args) => ({
 			nodeId: node.id,
 			status: "success",
 			output: input,
@@ -443,6 +443,228 @@ describe("executeWorkflow", () => {
 		expect(completedEdgeIds).toContain("e1");
 		expect(completedEdgeIds).toContain("e2");
 		expect(completedEdgeIds).not.toContain("e3");
+	});
+
+	describe("args node execution", () => {
+		it("executes args node in parallel with start node", async () => {
+			const graph = makeGraph(
+				[
+					makeNode("start", "exec"),
+					makeNode("myargs", "args", "```js\nreturn { x: 1 };\n```"),
+					makeNode("target", "script"),
+				],
+				[
+					makeEdge("e1", "start", "target"),
+					makeEdge("e2", "myargs", "target"),
+				],
+				"start",
+			);
+			const executed: string[] = [];
+			const results = await executeWorkflow(graph, mockCallbacks({
+				runNode: async (node, input, args) => {
+					executed.push(node.id);
+					return { nodeId: node.id, status: "success", output: { from: node.id }, durationMs: 1 };
+				},
+			}), { maxCycleIterations: 1000 });
+
+			expect(executed).toContain("start");
+			expect(executed).toContain("myargs");
+			expect(executed).toContain("target");
+			expect(results.every((r) => r.status === "success")).toBe(true);
+		});
+
+		it("passes args as separate parameter, not in input array", async () => {
+			const graph = makeGraph(
+				[
+					makeNode("start", "exec"),
+					makeNode("myargs", "args", "```js\nreturn { x: 1 };\n```"),
+					makeNode("target", "script"),
+				],
+				[
+					makeEdge("e1", "start", "target"),
+					makeEdge("e2", "myargs", "target"),
+				],
+				"start",
+			);
+			let capturedInput: readonly unknown[] = [];
+			let capturedArgs: Record<string, unknown> = {};
+			await executeWorkflow(graph, mockCallbacks({
+				runNode: async (node, input, args) => {
+					if (node.id === "target") {
+						capturedInput = input;
+						capturedArgs = args;
+					}
+					if (node.id === "myargs") return { nodeId: node.id, status: "success", output: { x: 1 }, durationMs: 1 };
+					return { nodeId: node.id, status: "success", output: { from: node.id }, durationMs: 1 };
+				},
+			}), { maxCycleIterations: 1000 });
+
+			expect(capturedInput).toHaveLength(1);
+			expect(capturedInput[0]).toEqual({ from: "start" });
+			expect(capturedArgs).toEqual({ x: 1 });
+		});
+
+		it("merges multiple args nodes into single object", async () => {
+			const graph = makeGraph(
+				[
+					makeNode("start", "exec"),
+					makeNode("args1", "args"),
+					makeNode("args2", "args"),
+					makeNode("target", "script"),
+				],
+				[
+					makeEdge("e1", "start", "target"),
+					makeEdge("e2", "args1", "target"),
+					makeEdge("e3", "args2", "target"),
+				],
+				"start",
+			);
+			let capturedArgs: Record<string, unknown> = {};
+			await executeWorkflow(graph, mockCallbacks({
+				runNode: async (node, input, args) => {
+					if (node.id === "args1") return { nodeId: node.id, status: "success", output: { x: 1 }, durationMs: 1 };
+					if (node.id === "args2") return { nodeId: node.id, status: "success", output: { y: 2 }, durationMs: 1 };
+					if (node.id === "target") capturedArgs = args;
+					return { nodeId: node.id, status: "success", output: { from: node.id }, durationMs: 1 };
+				},
+			}), { maxCycleIterations: 1000 });
+
+			expect(capturedArgs).toEqual({ x: 1, y: 2 });
+		});
+
+		it("passes empty args when no args node is connected", async () => {
+			const graph = makeGraph(
+				[makeNode("a", "exec"), makeNode("b", "exec")],
+				[makeEdge("e1", "a", "b")],
+				"a",
+			);
+			let capturedArgs: Record<string, unknown> = {};
+			await executeWorkflow(graph, mockCallbacks({
+				runNode: async (node, input, args) => {
+					if (node.id === "b") capturedArgs = args;
+					return { nodeId: node.id, status: "success", output: { from: node.id }, durationMs: 1 };
+				},
+			}), { maxCycleIterations: 1000 });
+
+			expect(capturedArgs).toEqual({});
+		});
+
+		it("skips target when args node fails with onError: continue", async () => {
+			const graph = makeGraph(
+				[
+					makeNode("start", "exec"),
+					makeNode("myargs", "args", "", "continue"),
+					makeNode("target", "script"),
+				],
+				[
+					makeEdge("e1", "start", "target"),
+					makeEdge("e2", "myargs", "target"),
+				],
+				"start",
+			);
+			const results = await executeWorkflow(graph, mockCallbacks({
+				runNode: async (node, input, args) => {
+					if (node.id === "myargs") {
+						return { nodeId: node.id, status: "failure", error: "args failed", durationMs: 1 };
+					}
+					return { nodeId: node.id, status: "success", output: { from: node.id }, durationMs: 1 };
+				},
+			}), { maxCycleIterations: 1000 });
+
+			expect(results.find((r) => r.nodeId === "myargs")!.status).toBe("failure");
+			expect(results.find((r) => r.nodeId === "target")!.status).toBe("skipped");
+		});
+
+		it("stops entire workflow when args node fails with onError: stop", async () => {
+			const graph = makeGraph(
+				[
+					makeNode("start", "exec"),
+					makeNode("myargs", "args"),
+					makeNode("target", "script"),
+				],
+				[
+					makeEdge("e1", "start", "target"),
+					makeEdge("e2", "myargs", "target"),
+				],
+				"start",
+			);
+			const results = await executeWorkflow(graph, mockCallbacks({
+				runNode: async (node, input, args) => {
+					if (node.id === "myargs") {
+						return { nodeId: node.id, status: "failure", error: "args failed", durationMs: 1 };
+					}
+					return { nodeId: node.id, status: "success", output: { from: node.id }, durationMs: 1 };
+				},
+			}), { maxCycleIterations: 1000 });
+
+			expect(results.find((r) => r.nodeId === "myargs")!.status).toBe("failure");
+			expect(results.find((r) => r.nodeId === "target")!.status).toBe("skipped");
+		});
+
+		it("executes args nodes for startNodeIdOverride target", async () => {
+			const graph = makeGraph(
+				[
+					makeNode("a", "exec"),
+					makeNode("b", "exec"),
+					makeNode("myargs", "args"),
+					makeNode("c", "script"),
+				],
+				[
+					makeEdge("e1", "a", "b"),
+					makeEdge("e2", "b", "c"),
+					makeEdge("e3", "myargs", "c"),
+				],
+				"a",
+			);
+			const executed: string[] = [];
+			await executeWorkflow(graph, mockCallbacks({
+				runNode: async (node, input, args) => {
+					executed.push(node.id);
+					return { nodeId: node.id, status: "success", output: { from: node.id }, durationMs: 1 };
+				},
+			}), { maxCycleIterations: 1000, startNodeIdOverride: "b" });
+
+			expect(executed).toContain("myargs");
+			expect(executed).toContain("b");
+			expect(executed).toContain("c");
+			expect(executed).not.toContain("a");
+		});
+
+		it("passes args to condition node callback", async () => {
+			const graph = makeGraph(
+				[
+					makeNode("start", "exec"),
+					makeNode("myargs", "args"),
+					makeNode("cond", "condition", "```js\nreturn 'yes';\n```"),
+					makeNode("target", "exec"),
+				],
+				[
+					makeEdge("e1", "start", "cond"),
+					makeEdge("e2", "myargs", "cond"),
+					makeEdge("e3", "cond", "target", "yes"),
+				],
+				"start",
+			);
+			let capturedArgs: Record<string, unknown> = {};
+			await executeWorkflow(graph, mockCallbacks({
+				runNode: async (node, input, args) => {
+					if (node.id === "myargs") return { nodeId: node.id, status: "success", output: { x: 1 }, durationMs: 1 };
+					return { nodeId: node.id, status: "success", output: { from: node.id }, durationMs: 1 };
+				},
+				runConditionNode: async (node, input, outEdges, args) => {
+					capturedArgs = args;
+					return {
+						nodeId: node.id,
+						status: "success",
+						output: input,
+						selectedEdgeId: outEdges.find((e) => e.label === "yes")?.id,
+						durationMs: 1,
+					};
+				},
+			}), { maxCycleIterations: 1000 });
+
+			expect(capturedArgs).toEqual({ x: 1 });
+		});
 	});
 
 	it("stops on max cycle iterations", async () => {

@@ -62,7 +62,7 @@ echo '{"message": "hello"}'
 
 ### script
 
-Executes JavaScript asynchronously. Available variables: `app` (Obsidian App instance), `obsidian` (the `obsidian` module, e.g. `Modal`, `Notice`, `SuggestModal`), and `input` (array of outputs from upstream nodes). The return value becomes the node output.
+Executes JavaScript asynchronously. Available variables: `app` (Obsidian App instance), `obsidian` (the `obsidian` module, e.g. `Modal`, `Notice`, `SuggestModal`), `input` (array of outputs from upstream nodes), and `args` (object from connected args nodes, empty `{}` if none). The return value becomes the node output.
 
 ````markdown
 ---
@@ -77,7 +77,7 @@ return { result };
 
 ### condition
 
-Evaluates JavaScript and returns a value that is stringified and matched against outgoing edge labels. Must have at least one labeled outgoing edge. An optional unlabeled edge serves as a default (like `default` in a switch statement) when no label matches. Available variables: `app`, `obsidian`, and `input` (same as script). The original `input` is passed through to the next node, not the condition's return value. Multiple labeled edges may point to the same target node.
+Evaluates JavaScript and returns a value that is stringified and matched against outgoing edge labels. Must have at least one labeled outgoing edge. An optional unlabeled edge serves as a default (like `default` in a switch statement) when no label matches. Available variables: `app`, `obsidian`, `input` (same as script), and `args` (object from connected args nodes, empty `{}` if none). The original `input` is passed through to the next node, not the condition's return value. Multiple labeled edges may point to the same target node.
 
 ````markdown
 ---
@@ -91,6 +91,35 @@ return input[0].count > 10 ? "high" : "low";
 
 Workflows may contain cycles. Every cycle must include a condition node with at least one exit edge leading outside the cycle.
 
+### args
+
+Provides reusable parameters to downstream script/condition nodes. The code block executes JavaScript and must return a plain object. The result is passed as a separate `args` parameter (not via `input`). This enables reusing the same script node with different configurations.
+
+````markdown
+---
+runestone.type: args
+---
+
+```js
+return {
+  items: ["Option A", "Option B", "Option C"],
+  placeholder: "Select an option",
+};
+```
+````
+
+The connected script/condition node receives `args` in addition to `app`, `obsidian`, and `input`:
+
+```js
+const items = args.items;
+// use items...
+```
+
+**Constraints:**
+- args nodes must not have incoming edges
+- args nodes cannot connect to other args nodes or exec nodes
+- Multiple args nodes to the same target are merged (key conflicts: last wins with console warning)
+
 ## Frontmatter Reference
 
 All properties use the `runestone.` prefix. Properties without this prefix are ignored.
@@ -99,7 +128,7 @@ All properties use the `runestone.` prefix. Properties without this prefix are i
 
 | Property | Values | Default | Description |
 |---|---|---|---|
-| `runestone.type` | `exec`, `script`, `condition` | (required) | Node type |
+| `runestone.type` | `exec`, `script`, `condition`, `args` | (required) | Node type |
 | `runestone.onError` | `stop`, `continue` | `stop` | Error handling strategy |
 
 - `stop`: abort the entire workflow and skip all remaining nodes

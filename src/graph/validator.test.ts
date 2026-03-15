@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { validate } from "./validator";
 import { ParsedGraph, WorkflowNode, WorkflowEdge } from "../types";
 
-function makeNode(id: string, type: "exec" | "script" | "condition", body = ""): WorkflowNode {
+function makeNode(id: string, type: "exec" | "script" | "condition" | "args", body = ""): WorkflowNode {
 	return {
 		id,
 		filePath: `${id}.md`,
@@ -273,5 +273,175 @@ describe("validate", () => {
 		);
 		const result = validate(graph);
 		expect(result.ok).toBe(false);
+	});
+
+	describe("args node validation", () => {
+		it("excludes args nodes from start node detection", () => {
+			const graph = makeGraph(
+				[
+					makeNode("start", "exec"),
+					makeNode("myargs", "args", "```js\nreturn { x: 1 };\n```"),
+					makeNode("target", "script"),
+				],
+				[
+					makeEdge("e1", "start", "target"),
+					makeEdge("e2", "myargs", "target"),
+				],
+			);
+			const result = validate(graph);
+			expect(result.ok).toBe(true);
+			if (result.ok) {
+				expect(result.graph.startNodeId).toBe("start");
+			}
+		});
+
+		it("fails when args node has incoming edges", () => {
+			const graph = makeGraph(
+				[
+					makeNode("start", "exec"),
+					makeNode("myargs", "args", "```js\nreturn { x: 1 };\n```"),
+					makeNode("target", "script"),
+				],
+				[
+					makeEdge("e1", "start", "myargs"),
+					makeEdge("e2", "myargs", "target"),
+				],
+			);
+			const result = validate(graph);
+			expect(result.ok).toBe(false);
+			if (!result.ok) {
+				expect(result.errors.some((e) => e.includes("args") && e.includes("incoming"))).toBe(true);
+			}
+		});
+
+		it("fails when args node connects to another args node", () => {
+			const graph = makeGraph(
+				[
+					makeNode("start", "exec"),
+					makeNode("args1", "args", "```js\nreturn { x: 1 };\n```"),
+					makeNode("args2", "args", "```js\nreturn { y: 2 };\n```"),
+					makeNode("target", "script"),
+				],
+				[
+					makeEdge("e1", "start", "target"),
+					makeEdge("e2", "args1", "args2"),
+					makeEdge("e3", "args2", "target"),
+				],
+			);
+			const result = validate(graph);
+			expect(result.ok).toBe(false);
+			if (!result.ok) {
+				expect(result.errors.some((e) => e.includes("args") && e.includes("args"))).toBe(true);
+			}
+		});
+
+		it("fails when args node connects to exec node", () => {
+			const graph = makeGraph(
+				[
+					makeNode("start", "exec"),
+					makeNode("myargs", "args", "```js\nreturn { x: 1 };\n```"),
+					makeNode("target", "exec"),
+				],
+				[
+					makeEdge("e1", "start", "target"),
+					makeEdge("e2", "myargs", "target"),
+				],
+			);
+			const result = validate(graph);
+			expect(result.ok).toBe(false);
+			if (!result.ok) {
+				expect(result.errors.some((e) => e.includes("args") && e.includes("exec"))).toBe(true);
+			}
+		});
+
+		it("fails when args node has no outgoing edges", () => {
+			const graph = makeGraph(
+				[
+					makeNode("start", "exec"),
+					makeNode("myargs", "args", "```js\nreturn { x: 1 };\n```"),
+				],
+				[],
+			);
+			const result = validate(graph);
+			expect(result.ok).toBe(false);
+			if (!result.ok) {
+				expect(result.errors.some((e) => e.includes("args") && e.includes("outgoing"))).toBe(true);
+			}
+		});
+
+		it("fails when args node has no code block", () => {
+			const graph = makeGraph(
+				[
+					makeNode("start", "exec"),
+					makeNode("myargs", "args", "no code block"),
+					makeNode("target", "script"),
+				],
+				[
+					makeEdge("e1", "start", "target"),
+					makeEdge("e2", "myargs", "target"),
+				],
+			);
+			const result = validate(graph);
+			expect(result.ok).toBe(false);
+			if (!result.ok) {
+				expect(result.errors.some((e) => e.includes("code block"))).toBe(true);
+			}
+		});
+
+		it("succeeds with valid args node connected to script node", () => {
+			const graph = makeGraph(
+				[
+					makeNode("start", "exec"),
+					makeNode("myargs", "args", "```js\nreturn { x: 1 };\n```"),
+					makeNode("target", "script"),
+				],
+				[
+					makeEdge("e1", "start", "target"),
+					makeEdge("e2", "myargs", "target"),
+				],
+			);
+			const result = validate(graph);
+			expect(result.ok).toBe(true);
+		});
+
+		it("succeeds with args node connected to condition node", () => {
+			const condBody = "```js\nreturn 'yes';\n```";
+			const graph = makeGraph(
+				[
+					makeNode("start", "exec"),
+					makeNode("myargs", "args", "```js\nreturn { x: 1 };\n```"),
+					{
+						...makeNode("cond", "condition", condBody),
+						config: { type: "condition" as const, onError: "stop" as const },
+					},
+					makeNode("target", "exec"),
+				],
+				[
+					makeEdge("e1", "start", "cond"),
+					makeEdge("e2", "myargs", "cond"),
+					makeEdge("e3", "cond", "target", "yes"),
+				],
+			);
+			const result = validate(graph);
+			expect(result.ok).toBe(true);
+		});
+
+		it("succeeds with multiple args nodes to same target", () => {
+			const graph = makeGraph(
+				[
+					makeNode("start", "exec"),
+					makeNode("args1", "args", "```js\nreturn { x: 1 };\n```"),
+					makeNode("args2", "args", "```js\nreturn { y: 2 };\n```"),
+					makeNode("target", "script"),
+				],
+				[
+					makeEdge("e1", "start", "target"),
+					makeEdge("e2", "args1", "target"),
+					makeEdge("e3", "args2", "target"),
+				],
+			);
+			const result = validate(graph);
+			expect(result.ok).toBe(true);
+		});
 	});
 });

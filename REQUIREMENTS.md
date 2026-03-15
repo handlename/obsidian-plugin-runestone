@@ -31,6 +31,17 @@ Runestone is an Obsidian plugin. It allows users to build and execute workflows 
 - Error if no labeled edge matches and no default edge exists
 - Output passes the input through as-is
 
+### REQ-NODE-004: args Node
+
+- Specify `runestone.type: args` in the note's Frontmatter
+- Write JavaScript in a code block in the note body
+- Has access to the Obsidian API (e.g. `app` object, `obsidian` module)
+- The return value must be a plain object
+- The return value is passed to the connected downstream node as a separate `args` parameter, not as part of `input`
+- Multiple args nodes connected to the same target are merged into a single `args` object
+- args nodes must not have incoming edges
+- args nodes must not connect to other args nodes or exec nodes
+
 ## Data Flow
 
 ### REQ-DATA-001: JSON-Based Data Flow

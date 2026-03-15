@@ -71,4 +71,18 @@ describe("runScriptNode", () => {
 		const result = await runScriptNode(node, [], {});
 		expect(result.durationMs).toBeGreaterThanOrEqual(0);
 	});
+
+	it("passes args to script", async () => {
+		const node = makeScriptNode("return { combined: input[0].x + args.y };");
+		const result = await runScriptNode(node, [{ x: 1 }], {}, {}, { y: 2 });
+		expect(result.status).toBe("success");
+		expect(result.output).toEqual({ combined: 3 });
+	});
+
+	it("provides empty args by default", async () => {
+		const node = makeScriptNode("return { keys: Object.keys(args) };");
+		const result = await runScriptNode(node, [], {}, {});
+		expect(result.status).toBe("success");
+		expect(result.output).toEqual({ keys: [] });
+	});
 });
