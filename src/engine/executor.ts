@@ -8,6 +8,7 @@ export interface WorkflowCallbacks {
 		outgoingEdges: readonly WorkflowEdge[],
 	) => Promise<ConditionResult>;
 	onNodeStatusChange: (nodeId: string, status: NodeStatus, result?: NodeResult) => void;
+	onEdgeCompleted?: (edgeId: string) => void;
 }
 
 export interface ExecutorOptions {
@@ -113,6 +114,7 @@ export async function executeWorkflow(
 		const promises: Promise<void>[] = [];
 		for (const edge of activeEdges) {
 			completedEdges.add(edge.id);
+			callbacks.onEdgeCompleted?.(edge.id);
 			const targetId = edge.toNode;
 			const targetIncoming = incomingEdges.get(targetId) ?? [];
 

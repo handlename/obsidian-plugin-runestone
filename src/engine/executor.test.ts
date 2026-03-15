@@ -395,6 +395,56 @@ describe("executeWorkflow", () => {
 		expect(results.find((r) => r.nodeId === "a-target")!.status).toBe("skipped");
 	});
 
+	it("calls onEdgeCompleted for each completed edge", async () => {
+		const graph = makeGraph(
+			[makeNode("a", "exec"), makeNode("b", "exec")],
+			[makeEdge("e1", "a", "b")],
+			"a",
+		);
+		const completedEdgeIds: string[] = [];
+		await executeWorkflow(graph, mockCallbacks({
+			onEdgeCompleted: (edgeId) => {
+				completedEdgeIds.push(edgeId);
+			},
+		}), { maxCycleIterations: 1000 });
+
+		expect(completedEdgeIds).toEqual(["e1"]);
+	});
+
+	it("calls onEdgeCompleted only for selected condition edge", async () => {
+		const graph = makeGraph(
+			[
+				makeNode("start", "exec"),
+				makeNode("cond", "condition", "```js\nreturn 'a';\n```"),
+				makeNode("a", "exec"),
+				makeNode("b", "exec"),
+			],
+			[
+				makeEdge("e1", "start", "cond"),
+				makeEdge("e2", "cond", "a", "a"),
+				makeEdge("e3", "cond", "b", "b"),
+			],
+			"start",
+		);
+		const completedEdgeIds: string[] = [];
+		await executeWorkflow(graph, mockCallbacks({
+			runConditionNode: async (node, input, outEdges) => ({
+				nodeId: node.id,
+				status: "success",
+				output: input,
+				selectedEdgeId: outEdges.find((e) => e.label === "a")?.id,
+				durationMs: 1,
+			}),
+			onEdgeCompleted: (edgeId) => {
+				completedEdgeIds.push(edgeId);
+			},
+		}), { maxCycleIterations: 1000 });
+
+		expect(completedEdgeIds).toContain("e1");
+		expect(completedEdgeIds).toContain("e2");
+		expect(completedEdgeIds).not.toContain("e3");
+	});
+
 	it("stops on max cycle iterations", async () => {
 		const graph = makeGraph(
 			[
