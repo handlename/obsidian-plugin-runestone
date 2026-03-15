@@ -69,15 +69,17 @@ export function validate(graph: ParsedGraph): ValidationResult {
 		if (node.config.type === "condition") {
 			const outEdges = outgoingEdges.get(node.id) ?? [];
 
-			if (outEdges.length < 2) {
+			const labeled = outEdges.filter((e) => !!e.label);
+			const unlabeled = outEdges.filter((e) => !e.label);
+
+			if (labeled.length < 1) {
 				errors.push(
-					`Condition node "${node.id}" (${node.filePath}) must have at least two outgoing edges, found ${outEdges.length}`,
+					`Condition node "${node.id}" (${node.filePath}) must have at least one labeled edge`,
 				);
 			}
-			const unlabeled = outEdges.filter((e) => !e.label);
-			if (unlabeled.length > 0) {
+			if (unlabeled.length > 1) {
 				errors.push(
-					`Condition node "${node.id}" (${node.filePath}) has ${unlabeled.length} outgoing edge(s) without a label`,
+					`Condition node "${node.id}" (${node.filePath}) must have at most one default (unlabeled) edge`,
 				);
 			}
 

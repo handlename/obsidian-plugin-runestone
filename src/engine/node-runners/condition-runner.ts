@@ -29,12 +29,16 @@ export async function runConditionNode(
 		const returnValue = await fn(app, input);
 		const conditionValue = String(returnValue);
 
-		const matchedEdge = outgoingEdges.find((e) => e.label === conditionValue);
-		if (!matchedEdge) {
+		const labeledEdges = outgoingEdges.filter((e) => !!e.label);
+		const matchedEdge = labeledEdges.find((e) => e.label === conditionValue);
+		const defaultEdge = outgoingEdges.find((e) => !e.label);
+		const selectedEdge = matchedEdge ?? defaultEdge;
+
+		if (!selectedEdge) {
 			return {
 				nodeId: node.id,
 				status: "failure",
-				error: `Condition node "${node.id}" returned "${conditionValue}" but no outgoing edge has that label. Available labels: ${outgoingEdges.map((e) => e.label).join(", ")}`,
+				error: `No matching edge for '${conditionValue}' and no default edge. Available labels: ${labeledEdges.map((e) => e.label).join(", ")}`,
 				durationMs: Date.now() - startTime,
 			};
 		}
@@ -43,7 +47,7 @@ export async function runConditionNode(
 			nodeId: node.id,
 			status: "success",
 			output: input,
-			selectedEdgeId: matchedEdge.id,
+			selectedEdgeId: selectedEdge.id,
 			durationMs: Date.now() - startTime,
 		};
 	} catch (e) {

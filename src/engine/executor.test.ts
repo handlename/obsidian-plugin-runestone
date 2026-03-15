@@ -256,6 +256,145 @@ describe("executeWorkflow", () => {
 		expect(executed).not.toContain("a");
 	});
 
+	it("executes target when condition has multiple edges to same node", async () => {
+		const graph = makeGraph(
+			[
+				makeNode("start", "exec"),
+				makeNode("cond", "condition", "```js\nreturn 'a';\n```"),
+				makeNode("target", "exec"),
+			],
+			[
+				makeEdge("e1", "start", "cond"),
+				makeEdge("e2", "cond", "target", "a"),
+				makeEdge("e3", "cond", "target", "b"),
+			],
+			"start",
+		);
+		const executed: string[] = [];
+		const results = await executeWorkflow(graph, mockCallbacks({
+			runNode: async (node) => {
+				executed.push(node.id);
+				return { nodeId: node.id, status: "success", output: { from: node.id }, durationMs: 1 };
+			},
+			runConditionNode: async (node, input, outEdges) => ({
+				nodeId: node.id,
+				status: "success",
+				output: input,
+				selectedEdgeId: outEdges.find((e) => e.label === "a")?.id,
+				durationMs: 1,
+			}),
+		}), { maxCycleIterations: 1000 });
+
+		expect(executed).toContain("target");
+		expect(results.find((r) => r.nodeId === "target")!.status).toBe("success");
+	});
+
+	it("dismissed edges do not block join", async () => {
+		// start -> cond, start -> B
+		// cond -> A (selected), cond -> join (dismissed)
+		// B -> join
+		// join has incoming [dismissed, completed] → should execute
+		const graph = makeGraph(
+			[
+				makeNode("start", "exec"),
+				makeNode("cond", "condition", "```js\nreturn 'a';\n```"),
+				makeNode("A", "exec"),
+				makeNode("B", "exec"),
+				makeNode("join", "exec"),
+			],
+			[
+				makeEdge("e1", "start", "cond"),
+				makeEdge("e2", "start", "B"),
+				makeEdge("e3", "cond", "A", "a"),
+				makeEdge("e4", "cond", "join", "b"),
+				makeEdge("e5", "B", "join"),
+			],
+			"start",
+		);
+		const executed: string[] = [];
+		const results = await executeWorkflow(graph, mockCallbacks({
+			runNode: async (node) => {
+				executed.push(node.id);
+				return { nodeId: node.id, status: "success", output: { from: node.id }, durationMs: 1 };
+			},
+			runConditionNode: async (node, input, outEdges) => ({
+				nodeId: node.id,
+				status: "success",
+				output: input,
+				selectedEdgeId: outEdges.find((e) => e.label === "a")?.id,
+				durationMs: 1,
+			}),
+		}), { maxCycleIterations: 1000 });
+
+		expect(executed).toContain("join");
+		expect(results.find((r) => r.nodeId === "join")!.status).toBe("success");
+	});
+
+	it("skips node reachable only via dismissed edge", async () => {
+		const graph = makeGraph(
+			[
+				makeNode("start", "exec"),
+				makeNode("cond", "condition", "```js\nreturn 'a';\n```"),
+				makeNode("a-target", "exec"),
+				makeNode("b-target", "exec"),
+			],
+			[
+				makeEdge("e1", "start", "cond"),
+				makeEdge("e2", "cond", "a-target", "a"),
+				makeEdge("e3", "cond", "b-target", "b"),
+			],
+			"start",
+		);
+		const results = await executeWorkflow(graph, mockCallbacks({
+			runConditionNode: async (node, input, outEdges) => ({
+				nodeId: node.id,
+				status: "success",
+				output: input,
+				selectedEdgeId: outEdges.find((e) => e.label === "a")?.id,
+				durationMs: 1,
+			}),
+		}), { maxCycleIterations: 1000 });
+
+		expect(results.find((r) => r.nodeId === "a-target")!.status).toBe("success");
+		expect(results.find((r) => r.nodeId === "b-target")!.status).toBe("skipped");
+	});
+
+	it("default edge fallback with dismissed edges", async () => {
+		const graph = makeGraph(
+			[
+				makeNode("start", "exec"),
+				makeNode("cond", "condition", "```js\nreturn 'unknown';\n```"),
+				makeNode("a-target", "exec"),
+				makeNode("default-target", "exec"),
+			],
+			[
+				makeEdge("e1", "start", "cond"),
+				makeEdge("e2", "cond", "a-target", "a"),
+				makeEdge("e3", "cond", "default-target"),
+			],
+			"start",
+		);
+		const executed: string[] = [];
+		const results = await executeWorkflow(graph, mockCallbacks({
+			runNode: async (node) => {
+				executed.push(node.id);
+				return { nodeId: node.id, status: "success", output: { from: node.id }, durationMs: 1 };
+			},
+			runConditionNode: async (node, input, outEdges) => ({
+				nodeId: node.id,
+				status: "success",
+				output: input,
+				// Simulate default edge selection (unlabeled edge)
+				selectedEdgeId: outEdges.find((e) => !e.label)?.id,
+				durationMs: 1,
+			}),
+		}), { maxCycleIterations: 1000 });
+
+		expect(executed).toContain("default-target");
+		expect(executed).not.toContain("a-target");
+		expect(results.find((r) => r.nodeId === "a-target")!.status).toBe("skipped");
+	});
+
 	it("stops on max cycle iterations", async () => {
 		const graph = makeGraph(
 			[

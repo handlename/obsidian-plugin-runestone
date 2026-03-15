@@ -35,11 +35,34 @@ describe("runConditionNode", () => {
 		expect(result.selectedEdgeId).toBe("e2");
 	});
 
-	it("fails when return value matches no edge", async () => {
+	it("fails when return value matches no edge and no default edge", async () => {
 		const node = makeConditionNode('return "maybe";');
 		const result = await runConditionNode(node, [{}], {}, makeOutEdges());
 		expect(result.status).toBe("failure");
-		expect(result.error).toContain("maybe");
+		expect(result.error).toContain("No matching edge for 'maybe' and no default edge");
+	});
+
+	it("falls back to default edge when no label matches", async () => {
+		const node = makeConditionNode('return "unknown";');
+		const edges: WorkflowEdge[] = [
+			{ id: "e1", fromNode: "cond-node", toNode: "yes-node", label: "yes" },
+			{ id: "e2", fromNode: "cond-node", toNode: "no-node", label: "no" },
+			{ id: "e-default", fromNode: "cond-node", toNode: "default-node" },
+		];
+		const result = await runConditionNode(node, [{}], {}, edges);
+		expect(result.status).toBe("success");
+		expect(result.selectedEdgeId).toBe("e-default");
+	});
+
+	it("prefers labeled edge over default edge", async () => {
+		const node = makeConditionNode('return "yes";');
+		const edges: WorkflowEdge[] = [
+			{ id: "e1", fromNode: "cond-node", toNode: "yes-node", label: "yes" },
+			{ id: "e-default", fromNode: "cond-node", toNode: "default-node" },
+		];
+		const result = await runConditionNode(node, [{}], {}, edges);
+		expect(result.status).toBe("success");
+		expect(result.selectedEdgeId).toBe("e1");
 	});
 
 	it("fails when no code block found", async () => {

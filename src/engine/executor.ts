@@ -24,6 +24,7 @@ export async function executeWorkflow(
 	const executionCounts = new Map<string, number>();
 	const nodeInputs = new Map<string, unknown[]>();
 	const completedEdges = new Set<string>();
+	const dismissedEdges = new Set<string>();
 
 	const outgoingEdges = new Map<string, WorkflowEdge[]>();
 	const incomingEdges = new Map<string, WorkflowEdge[]>();
@@ -97,6 +98,11 @@ export async function executeWorkflow(
 		if (node.config.type === "condition") {
 			if (selectedEdgeId) {
 				activeEdges = edges.filter((e) => e.id === selectedEdgeId);
+				for (const e of edges) {
+					if (e.id !== selectedEdgeId) {
+						dismissedEdges.add(e.id);
+					}
+				}
 			} else {
 				return;
 			}
@@ -116,7 +122,7 @@ export async function executeWorkflow(
 
 			// If target was previously executed (not just skipped), this is a cycle re-entry
 			const isCycleReentry = (executionCounts.get(targetId) ?? 0) > 0;
-			const allSatisfied = isCycleReentry || targetIncoming.every((e) => completedEdges.has(e.id));
+			const allSatisfied = isCycleReentry || targetIncoming.every((e) => completedEdges.has(e.id) || dismissedEdges.has(e.id));
 			if (allSatisfied) {
 				if (isCycleReentry) {
 					// Reset inputs for cycle re-entry

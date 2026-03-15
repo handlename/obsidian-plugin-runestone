@@ -56,22 +56,49 @@ describe("validate", () => {
 		expect(result.ok).toBe(false);
 	});
 
-	it("fails when condition node has fewer than 2 outgoing edges", () => {
+	it("fails when condition node has no labeled edges", () => {
 		const graph = makeGraph(
 			[
 				makeNode("a", "exec"),
 				{ ...makeNode("b", "condition", "```js\nreturn 'yes';\n```"), config: { type: "condition", onError: "stop" } },
+				makeNode("c", "exec"),
 			],
-			[makeEdge("e1", "a", "b")],
+			[
+				makeEdge("e1", "a", "b"),
+				makeEdge("e2", "b", "c"),
+			],
 		);
 		const result = validate(graph);
 		expect(result.ok).toBe(false);
 		if (!result.ok) {
-			expect(result.errors.some((e) => e.includes("at least two"))).toBe(true);
+			expect(result.errors.some((e) => e.includes("at least one labeled edge"))).toBe(true);
 		}
 	});
 
-	it("fails when condition node edges lack labels", () => {
+	it("fails when condition node has more than one unlabeled edge", () => {
+		const graph = makeGraph(
+			[
+				makeNode("a", "exec"),
+				{ ...makeNode("b", "condition", "```js\nreturn 'yes';\n```"), config: { type: "condition", onError: "stop" } },
+				makeNode("c", "exec"),
+				makeNode("d", "exec"),
+				makeNode("e", "exec"),
+			],
+			[
+				makeEdge("e1", "a", "b"),
+				makeEdge("e2", "b", "c", "yes"),
+				makeEdge("e3", "b", "d"),
+				makeEdge("e4", "b", "e"),
+			],
+		);
+		const result = validate(graph);
+		expect(result.ok).toBe(false);
+		if (!result.ok) {
+			expect(result.errors.some((e) => e.includes("at most one default (unlabeled) edge"))).toBe(true);
+		}
+	});
+
+	it("succeeds for condition node with labeled + one default edge", () => {
 		const graph = makeGraph(
 			[
 				makeNode("a", "exec"),
@@ -81,15 +108,46 @@ describe("validate", () => {
 			],
 			[
 				makeEdge("e1", "a", "b"),
-				makeEdge("e2", "b", "c"),
+				makeEdge("e2", "b", "c", "yes"),
 				makeEdge("e3", "b", "d"),
 			],
 		);
 		const result = validate(graph);
-		expect(result.ok).toBe(false);
-		if (!result.ok) {
-			expect(result.errors.some((e) => e.includes("label"))).toBe(true);
-		}
+		expect(result.ok).toBe(true);
+	});
+
+	it("succeeds for condition node with only labeled edges and no default", () => {
+		const graph = makeGraph(
+			[
+				makeNode("a", "exec"),
+				{ ...makeNode("b", "condition", "```js\nreturn 'yes';\n```"), config: { type: "condition", onError: "stop" } },
+				makeNode("c", "exec"),
+				makeNode("d", "exec"),
+			],
+			[
+				makeEdge("e1", "a", "b"),
+				makeEdge("e2", "b", "c", "yes"),
+				makeEdge("e3", "b", "d", "no"),
+			],
+		);
+		const result = validate(graph);
+		expect(result.ok).toBe(true);
+	});
+
+	it("succeeds for condition node with single labeled edge only", () => {
+		const graph = makeGraph(
+			[
+				makeNode("a", "exec"),
+				{ ...makeNode("b", "condition", "```js\nreturn 'yes';\n```"), config: { type: "condition", onError: "stop" } },
+				makeNode("c", "exec"),
+			],
+			[
+				makeEdge("e1", "a", "b"),
+				makeEdge("e2", "b", "c", "yes"),
+			],
+		);
+		const result = validate(graph);
+		expect(result.ok).toBe(true);
 	});
 
 	it("fails when condition node has no code block", () => {
