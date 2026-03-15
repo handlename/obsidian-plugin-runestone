@@ -250,6 +250,22 @@ describe("validate", () => {
 		expect(result.ok).toBe(true);
 	});
 
+	it("validates correctly when nondirectional edges are pre-filtered by builder", () => {
+		const graph = makeGraph(
+			[
+				makeNode("a", "exec"),
+				{ ...makeNode("b", "condition", "```js\nreturn 'yes';\n```"), config: { type: "condition", onError: "stop" } },
+				makeNode("c", "exec"),
+			],
+			[
+				makeEdge("e1", "a", "b"),
+				makeEdge("e2", "b", "c", "yes"),
+			],
+		);
+		const result = validate(graph);
+		expect(result.ok).toBe(true);
+	});
+
 	it("fails for cycle without condition exit", () => {
 		const graph = makeGraph(
 			[makeNode("a", "exec"), makeNode("b", "exec")],
