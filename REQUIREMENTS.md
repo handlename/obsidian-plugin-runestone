@@ -27,7 +27,8 @@ Runestone is an Obsidian plugin. It allows users to build and execute workflows 
 - Write JavaScript in a code block in the note body
 - Has access to the Obsidian API
 - Proceed along the output edge whose label matches the return value (string)
-- Error if no edge matches the return value
+- If no labeled edge matches, proceed along the unlabeled edge (default edge) if one exists
+- Error if no labeled edge matches and no default edge exists
 - Output passes the input through as-is
 
 ## Data Flow
@@ -65,7 +66,8 @@ Runestone is an Obsidian plugin. It allows users to build and execute workflows 
 
 ### REQ-GRAPH-004: Join
 
-- When multiple edges point to a single node, execution waits for all input sources to complete
+- When multiple edges point to a single node, execution waits for all input sources to complete or be dismissed
+- Edges not selected by a condition node are dismissed and do not block join
 
 ### REQ-GRAPH-005: Loops
 
@@ -82,7 +84,7 @@ The following are validated before workflow execution:
 2. If a cycle exists, there is an exit edge via a condition node
 3. Required properties are defined in each node's Frontmatter
 4. Template syntax references are valid (e.g. `input` is not referenced in a node with no inputs)
-5. Condition nodes have at least two labeled output edges
+5. Condition nodes have at least one labeled output edge and at most one unlabeled (default) output edge
 6. Condition nodes contain a JavaScript code block in the note body
 
 ## Execution Triggers

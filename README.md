@@ -77,7 +77,7 @@ return { result };
 
 ### condition
 
-Evaluates JavaScript and returns a value that is stringified and matched against outgoing edge labels. Must have at least 2 outgoing edges, each with a label. Available variables: `app` and `input` (same as script). The original `input` is passed through to the next node, not the condition's return value.
+Evaluates JavaScript and returns a value that is stringified and matched against outgoing edge labels. Must have at least one labeled outgoing edge. An optional unlabeled edge serves as a default (like `default` in a switch statement) when no label matches. Available variables: `app` and `input` (same as script). The original `input` is passed through to the next node, not the condition's return value. Multiple labeled edges may point to the same target node.
 
 ````markdown
 ---
