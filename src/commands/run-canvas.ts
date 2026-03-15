@@ -1,4 +1,5 @@
 import { App, Notice } from "obsidian";
+import * as obsidian from "obsidian";
 import { RunestoneSettings } from "../settings";
 import { buildParsedGraph } from "../graph/builder";
 import { validate } from "../graph/validator";
@@ -77,11 +78,14 @@ async function executeCanvasWorkflow(
 				if (node.config.type === "exec") {
 					return runExecNode(node, input, execContext);
 				}
-				return runScriptNode(node, input, app);
+				return runScriptNode(node, input, app, obsidian);
 			},
 			runConditionNode: async (node: WorkflowNode, input: readonly unknown[], outEdges: readonly WorkflowEdge[]): Promise<ConditionResult> => {
 				console.debug(`${LOG_PREFIX} Evaluating condition: ${node.filePath}`);
-				return runConditionNode(node, input, app, outEdges);
+				return runConditionNode(node, input, app, outEdges, obsidian);
+			},
+			onEdgeCompleted: (edgeId: string) => {
+				visualizer.updateEdge(edgeId);
 			},
 			onNodeStatusChange: (nodeId: string, status: NodeStatus, result?: NodeResult) => {
 				const node = graph.nodes.get(nodeId);
