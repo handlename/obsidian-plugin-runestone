@@ -295,6 +295,55 @@ describe("executeWorkflow", () => {
 		expect(skipped).toContain("b");
 	});
 
+	it("executes join after condition when non-selected branches have args edges", async () => {
+		// Workflow: start → cond → (a | b) → join, with args → a and args → b
+		// When cond selects "a", node "b" has a dismissed condition edge
+		// AND a completed args edge. "b" should still be skipped.
+		const graph = makeGraph(
+			[
+				makeNode("start", "exec"),
+				makeNode("cond", "condition", "```js\nreturn 'a';\n```"),
+				makeNode("cfg", "args", "```js\nreturn {x:1};\n```"),
+				makeNode("a", "script"),
+				makeNode("b", "script"),
+				makeNode("join", "script"),
+			],
+			[
+				makeEdge("e1", "start", "cond"),
+				makeEdge("e2", "cond", "a", "a"),
+				makeEdge("e3", "cond", "b", "b"),
+				makeEdge("e4", "a", "join"),
+				makeEdge("e5", "b", "join"),
+				makeEdge("e6", "cfg", "a"),
+				makeEdge("e7", "cfg", "b"),
+			],
+			"start",
+		);
+		const executed: string[] = [];
+		const skipped: string[] = [];
+		await executeWorkflow(graph, mockCallbacks({
+			runNode: async (node, input) => {
+				executed.push(node.id);
+				return { nodeId: node.id, status: "success", output: { from: node.id }, durationMs: 1 };
+			},
+			runConditionNode: async (node, input, outEdges) => ({
+				nodeId: node.id,
+				status: "success",
+				output: input,
+				selectedEdgeId: outEdges.find((e) => e.label === "a")?.id,
+				durationMs: 1,
+			}),
+			onNodeStatusChange: (nodeId, status) => {
+				if (status === "skipped") skipped.push(nodeId);
+			},
+		}), { maxCycleIterations: 1000 });
+
+		expect(executed).toContain("a");
+		expect(executed).toContain("join");
+		expect(executed).not.toContain("b");
+		expect(skipped).toContain("b");
+	});
+
 	it("passes NodeResult to onNodeStatusChange for terminal states", async () => {
 		const graph = makeGraph(
 			[makeNode("a", "exec"), makeNode("b", "exec")],

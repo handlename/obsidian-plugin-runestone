@@ -283,8 +283,14 @@ function propagateConditionDismissals(
 		if (results.has(targetId)) continue;
 
 		const targetIncoming = incomingEdges.get(targetId) ?? [];
-		const allDismissed = targetIncoming.every((e) => dismissedEdges.has(e.id));
-		if (!allDismissed) continue;
+		// Args edges provide configuration, not execution flow.
+		// A node is skippable when all non-args incoming edges are dismissed.
+		const allExecutionEdgesDismissed = targetIncoming.every((e) => {
+			const sourceNode = graph.nodes.get(e.fromNode);
+			if (sourceNode?.config.type === "args") return true;
+			return dismissedEdges.has(e.id);
+		});
+		if (!allExecutionEdgesDismissed) continue;
 
 		const skipResult: NodeResult = { nodeId: targetId, status: "skipped", durationMs: 0 };
 		results.set(targetId, skipResult);
