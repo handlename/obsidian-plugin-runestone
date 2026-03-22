@@ -116,7 +116,7 @@ runestone.exec.env.API_KEY: "{{input[0].key}}"
 
 ### Pre-Execution Validation
 
-Checks performed before a workflow runs: exactly one start node exists, cycles have exit edges via a condition node, required Frontmatter properties are defined, template syntax references are valid, condition nodes have at least two labeled output edges and contain a JavaScript code block.
+Checks performed before a workflow runs: exactly one start node exists, cycles have exit edges via a condition node, required Frontmatter properties are defined, template syntax references are valid, condition nodes have at least one labeled output edge and at most one unlabeled (default) edge, and contain a JavaScript code block.
 
 ### Node Status
 
