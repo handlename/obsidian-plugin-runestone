@@ -140,6 +140,13 @@ export async function executeWorkflow(
 						dismissedEdges.add(e.id);
 					}
 				}
+				// Skip non-selected targets and dismiss their outgoing edges,
+				// so that downstream join nodes can proceed
+				propagateConditionDismissals(
+					edges.filter((e) => e.id !== selectedEdgeId),
+					graph, outgoingEdges, incomingEdges, dismissedEdges, completedEdges,
+					results, callbacks,
+				);
 			} else {
 				return;
 			}
@@ -187,6 +194,7 @@ export async function executeWorkflow(
 					promises.push(executeNode(targetId, [result.output]));
 				} else {
 					const anyFailed = targetIncoming.some((e) => {
+						if (dismissedEdges.has(e.id)) return false;
 						const upstreamResult = results.get(e.fromNode);
 						return upstreamResult && (upstreamResult.status === "failure" || upstreamResult.status === "skipped");
 					});
@@ -251,6 +259,41 @@ function skipAllPending(
 			const skipResult: NodeResult = { nodeId, status: "skipped", durationMs: 0 };
 			results.set(nodeId, skipResult);
 			callbacks.onNodeStatusChange(nodeId, "skipped", skipResult);
+		}
+	}
+}
+
+// Propagate condition dismissals: skip non-selected targets and dismiss
+// their outgoing edges. Only skip a node if ALL its incoming edges are
+// dismissed (i.e. no other live branch feeds into it). This allows join
+// nodes with a mix of live and dismissed incoming edges to still execute.
+function propagateConditionDismissals(
+	dismissedConditionEdges: WorkflowEdge[],
+	graph: WorkflowGraph,
+	outgoingEdges: Map<string, WorkflowEdge[]>,
+	incomingEdges: Map<string, WorkflowEdge[]>,
+	dismissedEdges: Set<string>,
+	completedEdges: Set<string>,
+	results: Map<string, NodeResult>,
+	callbacks: WorkflowCallbacks,
+): void {
+	const queue = dismissedConditionEdges.map((e) => e.toNode);
+	while (queue.length > 0) {
+		const targetId = queue.shift()!;
+		if (results.has(targetId)) continue;
+
+		const targetIncoming = incomingEdges.get(targetId) ?? [];
+		const allDismissed = targetIncoming.every((e) => dismissedEdges.has(e.id));
+		if (!allDismissed) continue;
+
+		const skipResult: NodeResult = { nodeId: targetId, status: "skipped", durationMs: 0 };
+		results.set(targetId, skipResult);
+		callbacks.onNodeStatusChange(targetId, "skipped", skipResult);
+
+		const targetOutgoing = outgoingEdges.get(targetId) ?? [];
+		for (const e of targetOutgoing) {
+			dismissedEdges.add(e.id);
+			queue.push(e.toNode);
 		}
 	}
 }

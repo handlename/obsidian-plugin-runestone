@@ -249,6 +249,52 @@ describe("executeWorkflow", () => {
 		expect(downstreamInput[0]).toEqual({ from: "start" });
 	});
 
+	it("executes join node after condition when non-selected branches are skipped", async () => {
+		// Workflow: start → cond → (a | b) → join
+		// When cond selects "a", node "b" should be skipped,
+		// and "join" should still execute (not wait forever for "b")
+		const graph = makeGraph(
+			[
+				makeNode("start", "exec"),
+				makeNode("cond", "condition", "```js\nreturn 'a';\n```"),
+				makeNode("a", "script"),
+				makeNode("b", "script"),
+				makeNode("join", "script"),
+			],
+			[
+				makeEdge("e1", "start", "cond"),
+				makeEdge("e2", "cond", "a", "a"),
+				makeEdge("e3", "cond", "b", "b"),
+				makeEdge("e4", "a", "join"),
+				makeEdge("e5", "b", "join"),
+			],
+			"start",
+		);
+		const executed: string[] = [];
+		const skipped: string[] = [];
+		await executeWorkflow(graph, mockCallbacks({
+			runNode: async (node, input) => {
+				executed.push(node.id);
+				return { nodeId: node.id, status: "success", output: { from: node.id }, durationMs: 1 };
+			},
+			runConditionNode: async (node, input, outEdges) => ({
+				nodeId: node.id,
+				status: "success",
+				output: input,
+				selectedEdgeId: outEdges.find((e) => e.label === "a")?.id,
+				durationMs: 1,
+			}),
+			onNodeStatusChange: (nodeId, status) => {
+				if (status === "skipped") skipped.push(nodeId);
+			},
+		}), { maxCycleIterations: 1000 });
+
+		expect(executed).toContain("a");
+		expect(executed).toContain("join");
+		expect(executed).not.toContain("b");
+		expect(skipped).toContain("b");
+	});
+
 	it("passes NodeResult to onNodeStatusChange for terminal states", async () => {
 		const graph = makeGraph(
 			[makeNode("a", "exec"), makeNode("b", "exec")],
