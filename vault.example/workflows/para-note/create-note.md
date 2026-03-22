@@ -35,7 +35,19 @@ const templateBody = bodyMatch ? bodyMatch[1] : templateContent;
 const fileContent = frontmatter + "\n" + templateBody;
 const file = await app.vault.create(targetPath, fileContent);
 
-// Step 4: Run Templater on the created file to resolve <% %> expressions
+// Step 4: Wait for Obsidian's metadata cache to index the new file.
+// Without this, tp.frontmatter.* returns undefined because the cache
+// hasn't processed the frontmatter yet.
+await new Promise((resolve) => {
+  const ref = app.metadataCache.on("changed", (changedFile) => {
+    if (changedFile.path === file.path) {
+      app.metadataCache.offref(ref);
+      resolve();
+    }
+  });
+});
+
+// Step 5: Run Templater on the created file to resolve <% %> expressions
 // in the body. tp.frontmatter.* reads from the real values set in step 1.
 const templaterPlugin = app.plugins.plugins["templater-obsidian"];
 await templaterPlugin.templater.overwrite_file_commands(file);
