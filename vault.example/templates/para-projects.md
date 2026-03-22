@@ -1,9 +1,8 @@
 ---
-# Frontmatter values are set by the Runestone workflow script (create-note node).
+# Frontmatter values (title, para, created_at) are set by the create-note script.
 # In the template body, use <% tp.frontmatter.* %> to reference them.
-title:
-para:
-created_at:
+# Type-specific keys below are preserved in the created note.
+status: active
 ---
 
 > [!todo] <% tp.frontmatter.title %>
