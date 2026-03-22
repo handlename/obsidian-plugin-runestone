@@ -165,6 +165,12 @@ export async function executeWorkflow(
 					}
 				}
 				nodeArgs.set(targetId, { ...currentArgs, ...argsOutput });
+			} else if (node.config.type === "condition" && Array.isArray(result.output)) {
+				// Condition nodes pass through their original input array,
+				// so spread it to avoid double-nesting
+				const inputs = nodeInputs.get(targetId) ?? [];
+				inputs.push(...result.output);
+				nodeInputs.set(targetId, inputs);
 			} else {
 				const inputs = nodeInputs.get(targetId) ?? [];
 				inputs.push(result.output);

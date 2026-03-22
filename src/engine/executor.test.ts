@@ -214,6 +214,41 @@ describe("executeWorkflow", () => {
 		expect(executed).not.toContain("a");
 	});
 
+	it("passes condition input through to downstream node without double-nesting", async () => {
+		const graph = makeGraph(
+			[
+				makeNode("start", "exec"),
+				makeNode("cond", "condition", "```js\nreturn 'a';\n```"),
+				makeNode("a", "script"),
+			],
+			[
+				makeEdge("e1", "start", "cond"),
+				makeEdge("e2", "cond", "a", "a"),
+			],
+			"start",
+		);
+		let downstreamInput: readonly unknown[] = [];
+		await executeWorkflow(graph, mockCallbacks({
+			runNode: async (node, input) => {
+				if (node.id === "a") {
+					downstreamInput = input;
+				}
+				return { nodeId: node.id, status: "success", output: { from: node.id }, durationMs: 1 };
+			},
+			runConditionNode: async (node, input, outEdges) => ({
+				nodeId: node.id,
+				status: "success",
+				output: input,
+				selectedEdgeId: outEdges.find((e) => e.label === "a")?.id,
+				durationMs: 1,
+			}),
+		}), { maxCycleIterations: 1000 });
+
+		// input[0] should be the start node's output, not a nested array
+		expect(downstreamInput).toHaveLength(1);
+		expect(downstreamInput[0]).toEqual({ from: "start" });
+	});
+
 	it("passes NodeResult to onNodeStatusChange for terminal states", async () => {
 		const graph = makeGraph(
 			[makeNode("a", "exec"), makeNode("b", "exec")],
