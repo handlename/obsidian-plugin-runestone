@@ -1,0 +1,94 @@
+# Runestone Glossary
+
+Domain-specific terms used in Runestone workflows.
+
+## Node Types
+
+### Workflow Node
+A note referenced from a Canvas that acts as a step in a workflow. Must have `runestone.type` defined in Frontmatter. Only Canvas nodes of `type: "file"` are treated as workflow nodes.
+
+### exec Node
+Runs a shell command written in the note body. Stdout is parsed as JSON and passed to the next node. Errors if stdout is not valid JSON.
+
+### script Node
+Runs JavaScript from a code block in the note body. Has access to the Obsidian API (e.g. `app` object). The return value is passed as JSON to the next node.
+
+### condition Node
+Evaluates JavaScript from a code block and routes execution based on the return value. Has access to the Obsidian API. The return value (string) is matched against Edge Labels to determine which outgoing path to follow. Errors if no edge matches the return value. Input data passes through unchanged.
+
+## Data Flow
+
+### Input Data
+JSON data passed between nodes. Each node receives input from its upstream node(s) and produces output for its downstream node(s).
+
+### Template Syntax
+`{{input[n].key}}` format for referencing input data in Frontmatter values and note body. Even when a node has only one input, it is referenced with index `[0]`.
+
+### Multiple Inputs
+When multiple edges converge on a Join node, inputs are delivered as an Array. The array order is determined by the completion order of the input source nodes and may vary between executions.
+
+## Workflow Graph
+
+### Workflow
+A directed graph of nodes and edges defined on a Canvas. Represents an executable sequence of operations.
+
+### Edge
+A connection between two nodes on the Canvas. Defines the execution order and data flow direction. Edges may have labels.
+
+### Edge Label
+A text label on an edge. Used by condition nodes to determine which outgoing path to follow based on the condition's return value.
+
+### Start Node
+The single node with no incoming edges. Every workflow must have exactly one start node.
+
+### Parallel Execution
+When a node has multiple outgoing edges, all target nodes execute concurrently.
+
+### Join
+When multiple edges point to a single node, execution waits for all upstream nodes to complete before proceeding.
+
+### Cycle
+A loop in the workflow graph. Cycles are permitted, but must include an exit path via a condition node.
+
+## Execution
+
+### Execution Trigger
+A mechanism that starts a workflow. Includes: Command Palette command, Canvas UI button, node context menu (partial execution), and registered workflow commands.
+
+### Registered Workflow
+A Canvas file registered in plugin settings with a name. Can be executed from the Command Palette as "Runestone: Run \<workflow name\>" without the Canvas being open.
+
+### Partial Execution
+Running a workflow starting from a specific node (via right-click context menu) instead of from the start node.
+
+### Execution Environment
+Configuration for how external commands run. Includes working directory, shell, and additional environment variables. Defaults to the vault root directory and the OS default shell.
+
+```yaml
+---
+runestone.type: exec
+runestone.exec.workdir: "{{input[0].dir}}"
+runestone.exec.shell: /bin/bash
+runestone.exec.env.API_KEY: "{{input[0].key}}"
+---
+```
+
+### Pre-Execution Validation
+Checks performed before a workflow runs: exactly one start node exists, cycles have exit edges via a condition node, required Frontmatter properties are defined, template syntax references are valid, condition nodes have at least one labeled output edge and at most one unlabeled (default) edge, and contain a JavaScript code block.
+
+### Node Status
+The execution state of a node. One of five states: Pending (not yet started), Running (currently executing), Success (completed successfully), Failure (error occurred), Skipped (not executed due to upstream error).
+
+### Error Behavior
+How errors are handled. By default, a node error stops the entire workflow. Setting `runestone.onError: continue` in Frontmatter causes only the downstream path of the failed node to stop while other parallel paths continue.
+
+## Obsidian Concepts
+
+### Canvas
+An Obsidian feature for visual arrangement of notes and connections. Runestone uses `.canvas` files (JSON format with `nodes` and `edges`) to define workflow structure.
+
+### Frontmatter
+YAML metadata at the top of an Obsidian note. Runestone uses Frontmatter properties prefixed with `runestone.` to configure node behavior (e.g., `runestone.type`, `runestone.onError`, `runestone.exec.*`).
+
+### Vault
+The root directory managed by Obsidian. The default working directory for exec node command execution.
