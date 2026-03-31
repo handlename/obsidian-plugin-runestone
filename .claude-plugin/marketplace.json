@@ -1,0 +1,27 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "runestone-workflow",
+  "description": "Claude Code skill for creating and modifying Runestone workflows on Obsidian Canvas",
+  "owner": {
+    "name": "handlename"
+  },
+  "plugins": [
+    {
+      "name": "runestone-workflow",
+      "description": "Claude Code skill for creating and modifying Runestone workflows on Obsidian Canvas",
+      "version": "0.1.0",
+      "author": {
+        "name": "handlename"
+      },
+      "source": "./",
+      "homepage": "https://github.com/handlename/obsidian-plugin-runestone",
+      "tags": [
+        "obsidian",
+        "canvas",
+        "workflow",
+        "runestone"
+      ]
+    }
+  ],
+  "version": "0.1.0"
+}
