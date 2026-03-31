@@ -1,5 +1,5 @@
 [tagpr]
-    releaseBranch = master
+    releaseBranch = main
     versionFile = manifest.json,package.json,versions.json
     vPrefix = false
     changelog = true
