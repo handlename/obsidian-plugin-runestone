@@ -30,11 +30,21 @@ runestone.type: script
 
 ### condition Node
 
-Evaluates JavaScript from a code block and routes execution based on the return value. Has access to the Obsidian API. The return value (string) is matched against Edge Labels to determine which outgoing path to follow. Errors if no edge matches the return value. Input data passes through unchanged.
+Evaluates JavaScript from a code block and routes execution based on the return value. Has access to the Obsidian API. The return value (string) is matched against Edge Labels to determine which outgoing path to follow. Errors if no edge matches the return value and no Default Edge exists. Input data passes through unchanged.
 
 ```yaml
 ---
 runestone.type: condition
+---
+```
+
+### args Node
+
+Executes JavaScript from a code block and provides the result as a separate `args` parameter to connected downstream script/condition nodes. Unlike other node types, the output is not passed via `input`. args nodes must not have incoming edges and cannot connect to other args nodes or exec nodes. When multiple args nodes connect to the same target, their outputs are merged into a single `args` object (key conflicts: last wins with a console warning).
+
+```yaml
+---
+runestone.type: args
 ---
 ```
 
@@ -70,6 +80,14 @@ A connection between two nodes on the Canvas. Defines the execution order and da
 ### Edge Label
 
 A text label on an edge. Used by condition nodes to determine which outgoing path to follow based on the condition's return value.
+
+### Default Edge
+
+An unlabeled outgoing edge of a condition node. Acts as a fallback path when the condition's return value does not match any Edge Label, similar to `default` in a switch statement. A condition node may have at most one Default Edge.
+
+### Nondirectional Edge
+
+An edge with both endpoints set to `"none"` (`fromEnd: "none"`, `toEnd: "none"`). Nondirectional edges are excluded from the workflow entirely — they are filtered out during graph construction and ignored during both validation and execution.
 
 ### Start Node
 
