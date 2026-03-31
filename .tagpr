@@ -1,6 +1,6 @@
 [tagpr]
     releaseBranch = main
-    versionFile = manifest.json,package.json,versions.json
+    versionFile = manifest.json,package.json,versions.json,.claude-plugin/plugin.json
     vPrefix = false
     changelog = true
     release = draft

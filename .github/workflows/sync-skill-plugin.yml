@@ -1,0 +1,39 @@
+name: sync-skill-plugin
+
+on:
+  push:
+    branches:
+      - "tagpr-from-*"
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    # Skip if the push was made by this workflow to prevent loops
+    if: github.actor != 'github-actions[bot]'
+    steps:
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        with:
+          token: ${{ secrets.GH_PAT }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@395ad3262231945c25e8478fd5baf05154b1d79f # v6.1.0
+        with:
+          node-version: "22"
+
+      - name: Sync skill plugin references and version
+        run: bash scripts/sync-skill-plugin.sh
+
+      - name: Commit and push if changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add skills/ .claude-plugin/
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "chore: sync skill plugin references and version"
+            git push
+          fi
