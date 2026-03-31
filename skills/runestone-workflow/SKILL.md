@@ -25,10 +25,10 @@ Runestone is an Obsidian plugin that turns Canvas files into executable workflow
 
 ## References
 
-All reference documents are bundled with this skill. Read them on demand.
+Reference documents are in this repository. Read them on demand.
 
-- **`references/node-types.md`** (relative to this skill) — Node types (exec, script, condition, args), frontmatter reference, template syntax
-- **`references/glossary.md`** (relative to this skill) — Domain terminology, graph rules, pre-execution validation rules
+- **`../../README.md`** (relative to this skill) — Full plugin documentation including node types (## Node Types), frontmatter reference, and template syntax
+- **`../../GLOSSARY.md`** (relative to this skill) — Domain terminology, graph rules, pre-execution validation rules
 - **https://jsoncanvas.org/spec/1.0/** — JSON Canvas format specification
 - **`references/workflow-examples.md`** (relative to this skill) — Complete workflow examples
 - **`references/reusable-node-patterns.md`** (relative to this skill) — Design patterns for building reusable nodes across workflows
@@ -104,7 +104,7 @@ After any operation, verify:
 - **Edge consistency**: all `fromNode`/`toNode` values reference existing node IDs
 - **File existence**: all node `file` paths point to existing `.md` files
 
-For detailed validation rules, refer to `references/glossary.md` (Pre-Execution Validation).
+For detailed validation rules, refer to `../../GLOSSARY.md` (Pre-Execution Validation).
 
 ## Template Usage
 

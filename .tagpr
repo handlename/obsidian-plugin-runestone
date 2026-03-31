@@ -6,3 +6,4 @@
     release = draft
     majorLabels = major
     minorLabels = minor
+    postVersionCommand = bash scripts/sync-skill-plugin.sh
