@@ -31,6 +31,7 @@ All reference documents are bundled with this skill. Read them on demand.
 - **`references/glossary.md`** (relative to this skill) — Domain terminology, graph rules, pre-execution validation rules
 - **https://jsoncanvas.org/spec/1.0/** — JSON Canvas format specification
 - **`references/workflow-examples.md`** (relative to this skill) — Complete workflow examples
+- **`references/reusable-node-patterns.md`** (relative to this skill) — Design patterns for building reusable nodes across workflows
 
 ## Runestone-Specific Canvas Notes
 
@@ -40,10 +41,12 @@ Things to know beyond the references:
 - Nondirectional edges (`fromEnd: "none"` + `toEnd: "none"`) are filtered out by Runestone
 - Directional edges: omit `fromEnd`/`toEnd` or set `toEnd: "arrow"`. Never set both to `"none"`
 - Recommended `fromSide: "right"`, `toSide: "left"` for left-to-right flows
-- Recommended node size: width 250, height 60
+- Recommended minimum node size: width 250, height 60 (suitable when node content does not need to be visible on canvas). When the user wants to inspect node content directly on the canvas, increase the size as appropriate (e.g., 400x400). Ask the user for their preferred size
 - Recommended spacing: 300px horizontal, 200px vertical
 - Layout convention: left-to-right, top-to-bottom flow
 - Node/edge IDs: random lowercase hex string (16 characters)
+- Args node code blocks support `await` for asynchronous operations (e.g., `app.vault.read()`) since they are executed via `AsyncFunction`. This is useful for dynamically building candidate lists or reading vault content at execution time
+- Prefer placing args nodes above their target script/condition node, connected with `fromSide: "bottom"`, `toSide: "top"`. When layout constraints require it (e.g., args feeding multiple distant nodes), `toSide: "left"` is acceptable. This keeps args connections separate from the main left-to-right flow
 - Do not set `color` on canvas nodes — Runestone uses colors for execution status visualization
 
 Minimal canvas JSON skeleton for quick reference:

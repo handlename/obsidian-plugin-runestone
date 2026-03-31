@@ -50,7 +50,7 @@ Workflows may contain cycles. Every cycle must include a condition node with at 
 
 ### args
 
-Provides reusable parameters to downstream script/condition nodes. The code block executes JavaScript and must return a plain object. The result is passed as a separate `args` parameter (not via `input`). This enables reusing the same script node with different configurations.
+Provides reusable parameters to downstream script/condition nodes. The code block executes JavaScript asynchronously (same as script/condition nodes). Available variables: `app` (Obsidian App instance) and `obsidian` (the `obsidian` module). The code must return a plain object. The result is passed as a separate `args` parameter (not via `input`). This enables reusing the same script node with different configurations.
 
 ````markdown
 ---
