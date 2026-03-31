@@ -124,6 +124,7 @@ let styleEl: HTMLStyleElement | null = null;
 
 export function injectStyles(): void {
 	if (styleEl) return;
+	// eslint-disable-next-line obsidianmd/no-forbidden-elements -- dynamic style injection for overlay system
 	styleEl = document.createElement("style");
 	styleEl.textContent = STYLES;
 	document.head.appendChild(styleEl);

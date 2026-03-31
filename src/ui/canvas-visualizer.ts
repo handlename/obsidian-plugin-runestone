@@ -127,6 +127,7 @@ export class CanvasVisualizer {
 		if (!overlay) {
 			overlay = document.createElement("div");
 			overlay.className = "runestone-overlay";
+			// eslint-disable-next-line obsidianmd/no-static-styles-assignment -- internal Canvas API node
 			canvasNode.contentEl.style.position = "relative";
 			canvasNode.contentEl.appendChild(overlay);
 			this.overlayElements.set(nodeId, overlay);
@@ -172,7 +173,8 @@ export class CanvasVisualizer {
 				break;
 			}
 			case "skipped": {
-				overlay.textContent = "\u2014 Skipped";
+				// eslint-disable-next-line obsidianmd/ui/sentence-case -- status label
+			overlay.textContent = "\u2014 Skipped";
 				break;
 			}
 			case "pending": {

@@ -135,6 +135,7 @@ export async function runWorkflow(
 	canvasName: string,
 ): Promise<void> {
 	if (isRunning) {
+		// eslint-disable-next-line obsidianmd/ui/sentence-case -- plugin name
 		new Notice("Runestone: A workflow is already running");
 		return;
 	}
@@ -162,6 +163,7 @@ export async function runWorkflowFromNode(
 	startNodeId: string,
 ): Promise<void> {
 	if (isRunning) {
+		// eslint-disable-next-line obsidianmd/ui/sentence-case -- plugin name
 		new Notice("Runestone: A workflow is already running");
 		return;
 	}

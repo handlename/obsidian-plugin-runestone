@@ -46,6 +46,7 @@ class NewWorkflowModal extends Modal {
 
 	onOpen() {
 		const { contentEl } = this;
+		// eslint-disable-next-line obsidianmd/ui/sentence-case -- plugin name
 		contentEl.createEl("h2", { text: "New Runestone workflow" });
 
 		let inputValue = "";
@@ -53,7 +54,8 @@ class NewWorkflowModal extends Modal {
 		new Setting(contentEl)
 			.setName("Workflow name")
 			.addText((text) => {
-				text.setPlaceholder("my-workflow");
+				// eslint-disable-next-line obsidianmd/ui/sentence-case -- placeholder
+			text.setPlaceholder("my-workflow");
 				text.onChange((value: string) => { inputValue = value; });
 				text.inputEl.addEventListener("keydown", (e: KeyboardEvent) => {
 					if (e.key === "Enter") {
@@ -63,6 +65,7 @@ class NewWorkflowModal extends Modal {
 							this.close();
 							this.onSubmit(name);
 						} else {
+							// eslint-disable-next-line obsidianmd/ui/sentence-case -- plugin name
 							new Notice("Runestone: Invalid workflow name");
 						}
 					}
@@ -77,6 +80,7 @@ class NewWorkflowModal extends Modal {
 						this.close();
 						this.onSubmit(name);
 					} else {
+						// eslint-disable-next-line obsidianmd/ui/sentence-case -- plugin name
 						new Notice("Runestone: Invalid workflow name");
 					}
 				}),

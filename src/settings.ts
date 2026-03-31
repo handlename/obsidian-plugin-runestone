@@ -73,7 +73,7 @@ export class RunestoneSettingTab extends PluginSettingTab {
 					}),
 			);
 
-		containerEl.createEl("h3", { text: "Registered workflows" });
+		new Setting(containerEl).setName("Registered workflows").setHeading();
 
 		const workflowList = containerEl.createDiv();
 
@@ -114,6 +114,7 @@ export class RunestoneSettingTab extends PluginSettingTab {
 							this.plugin.settings = { ...this.plugin.settings, workflows };
 							await this.plugin.saveSettings();
 							renderWorkflows();
+							// eslint-disable-next-line obsidianmd/ui/sentence-case -- plugin name
 							new Notice("Runestone: Workflow list updated. Reload the plugin to update command palette.");
 						}),
 					);

@@ -44,26 +44,28 @@ export default class RunestonePlugin extends Plugin {
 					if (!view.addAction || !view.file) continue;
 
 					view.addAction("play", "Run workflow", () => {
-						runWorkflow(this.app, this.settings, view.file!.path, view.file!.basename);
+						void runWorkflow(this.app, this.settings, view.file!.path, view.file!.basename);
 					});
 				}
 			}),
 		);
 
 		// canvas:node-menu is an undocumented Obsidian API event
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any
 		this.registerEvent(
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
 			(this.app.workspace as any).on("canvas:node-menu", (menu: unknown, node: unknown) => {
 				const menuObj = menu as { addItem: (cb: (item: { setTitle: (t: string) => unknown; setIcon: (i: string) => unknown; onClick: (cb: () => void) => unknown }) => void) => void };
 				const nodeObj = node as { id?: string };
 				if (!nodeObj.id) return;
 
 				menuObj.addItem((item) => {
+					// eslint-disable-next-line obsidianmd/ui/sentence-case -- plugin name
 					item.setTitle("Runestone: Run from this node");
 					item.setIcon("play");
 					item.onClick(() => {
 						const canvasLeaves = this.app.workspace.getLeavesOfType("canvas");
 						const activeCanvasLeaf = canvasLeaves.find((leaf) => {
+							// eslint-disable-next-line @typescript-eslint/no-deprecated -- no typed alternative for canvas context
 							return leaf === this.app.workspace.activeLeaf;
 						});
 						if (!activeCanvasLeaf) return;
@@ -71,7 +73,7 @@ export default class RunestonePlugin extends Plugin {
 						const view = activeCanvasLeaf.view as unknown as { file?: { path: string; basename: string } };
 						if (!view.file) return;
 
-						runWorkflowFromNode(this.app, this.settings, view.file.path, view.file.basename, nodeObj.id!);
+						void runWorkflowFromNode(this.app, this.settings, view.file.path, view.file.basename, nodeObj.id!);
 					});
 				});
 			}),
