@@ -174,3 +174,11 @@ npm run build    # Production build
 npm run test     # Run tests (vitest)
 npm run lint     # Lint with ESLint
 ```
+
+## License
+
+[MIT](./LICENSE)
+
+## Author
+
+[handlename](https://github.com/handlename/)
