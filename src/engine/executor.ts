@@ -176,7 +176,7 @@ export async function executeWorkflow(
 				// Condition nodes pass through their original input array,
 				// so spread it to avoid double-nesting
 				const inputs = nodeInputs.get(targetId) ?? [];
-				inputs.push(...result.output);
+				inputs.push(...(result.output as unknown[]));
 				nodeInputs.set(targetId, inputs);
 			} else {
 				const inputs = nodeInputs.get(targetId) ?? [];

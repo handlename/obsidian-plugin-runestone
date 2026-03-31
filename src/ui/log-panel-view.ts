@@ -1,4 +1,4 @@
-import { App, ItemView, WorkspaceLeaf } from "obsidian";
+import { App, ItemView } from "obsidian";
 import { ExecutionState, NodeExecutionEntry } from "./execution-state";
 import { formatDuration } from "./format";
 
@@ -34,6 +34,7 @@ export class LogPanelView extends ItemView {
 	}
 
 	getDisplayText(): string {
+		// eslint-disable-next-line obsidianmd/ui/sentence-case -- view title
 		return "Runestone Log";
 	}
 
@@ -105,7 +106,7 @@ export class LogPanelView extends ItemView {
 		});
 		nameEl.addEventListener("click", (e) => {
 			e.stopPropagation();
-			this.app.workspace.openLinkText(entry.filePath, "");
+			void this.app.workspace.openLinkText(entry.filePath, "");
 		});
 
 		// Status
@@ -164,6 +165,6 @@ export async function activateLogPanel(app: App): Promise<LogPanelView | null> {
 		await rightLeaf.setViewState({ type: LOG_PANEL_VIEW_TYPE, active: true });
 		leaf = rightLeaf;
 	}
-	app.workspace.revealLeaf(leaf);
+	await app.workspace.revealLeaf(leaf);
 	return leaf.view as LogPanelView;
 }
