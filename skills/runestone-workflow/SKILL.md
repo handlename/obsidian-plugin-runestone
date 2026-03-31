@@ -5,28 +5,36 @@ description: >
   Use when the user asks to build, edit, or extend visual workflows
   with exec, script, condition, or args nodes on Obsidian Canvas files.
   Handles .canvas JSON files and node .md files with runestone frontmatter.
+triggers:
+  - "create a workflow"
+  - "runestone workflow"
+  - "add a node to the canvas"
+  - "build a pipeline on canvas"
+  - "make a workflow"
+  - "edit workflow"
+argument-hint: "[description of the workflow to create or modify]"
 compatibility: Requires file system access to an Obsidian vault directory.
 metadata:
   author: handlename
-  version: "0.1"
+  version: "0.1.0"
 ---
 
 ## Overview
 
 Runestone is an Obsidian plugin that turns Canvas files into executable workflow diagrams. Nodes are Markdown files with runestone frontmatter; edges are JSON entries in the `.canvas` file. This skill helps agents create and modify Runestone workflows by generating/editing `.canvas` JSON files and node `.md` files within an Obsidian vault.
 
-## External References
+## References
 
-Read these on demand — do not duplicate their content here.
+All reference documents are bundled with this skill. Read them on demand.
 
-- **`README.md`** (repo root) — Node types (exec, script, condition, args), frontmatter reference, template syntax
-- **`GLOSSARY.md`** (repo root) — Domain terminology, graph rules, pre-execution validation rules
+- **`references/node-types.md`** (relative to this skill) — Node types (exec, script, condition, args), frontmatter reference, template syntax
+- **`references/glossary.md`** (relative to this skill) — Domain terminology, graph rules, pre-execution validation rules
 - **https://jsoncanvas.org/spec/1.0/** — JSON Canvas format specification
 - **`references/workflow-examples.md`** (relative to this skill) — Complete workflow examples
 
 ## Runestone-Specific Canvas Notes
 
-Things to know beyond the external references:
+Things to know beyond the references:
 
 - Only `file` type canvas nodes are workflow nodes — text, link, and group nodes are ignored by Runestone
 - Nondirectional edges (`fromEnd: "none"` + `toEnd: "none"`) are filtered out by Runestone
@@ -53,7 +61,7 @@ Minimal canvas JSON skeleton for quick reference:
 
 ## Operations
 
-### 4.1 Create Workflow
+### Create Workflow
 
 1. Determine node composition from user requirements
 2. Create node `.md` files with appropriate frontmatter and code blocks (use templates from `assets/templates/`)
@@ -61,7 +69,7 @@ Minimal canvas JSON skeleton for quick reference:
 4. Position nodes following the layout convention (left-to-right, top-to-bottom)
 5. Run the validation checklist
 
-### 4.2 Modify Workflow
+### Modify Workflow
 
 1. Read existing `.canvas` JSON to understand current graph structure
 2. Read relevant node `.md` files
@@ -69,7 +77,7 @@ Minimal canvas JSON skeleton for quick reference:
 4. Update canvas JSON and write back
 5. Run the validation checklist
 
-### 4.3 Low-Level Operations
+### Low-Level Operations
 
 | Operation | Steps |
 |-----------|-------|
@@ -93,7 +101,7 @@ After any operation, verify:
 - **Edge consistency**: all `fromNode`/`toNode` values reference existing node IDs
 - **File existence**: all node `file` paths point to existing `.md` files
 
-For detailed validation rules, refer to Pre-Execution Validation in `GLOSSARY.md`.
+For detailed validation rules, refer to `references/glossary.md` (Pre-Execution Validation).
 
 ## Template Usage
 
