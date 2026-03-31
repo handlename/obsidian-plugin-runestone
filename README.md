@@ -165,6 +165,29 @@ Start nodes (no incoming edges) cannot use template syntax.
 | Maximum cycle iterations | Prevents infinite loops in cyclic workflows | 1000 |
 | Registered workflows | Named workflows with dedicated commands | (none) |
 
+## Claude Code Skill: runestone-workflow
+
+A [Claude Code](https://claude.com/claude-code) skill that helps AI agents create and modify Runestone workflows. When this skill is installed, you can ask Claude Code to build, edit, or extend workflows on Obsidian Canvas using natural language.
+
+### Installation
+
+Run the following commands in Claude Code:
+
+```
+/plugin marketplace add https://github.com/handlename/obsidian-plugin-runestone
+/plugin install runestone-workflow
+```
+
+### Usage
+
+Once the skill is available, you can invoke it from Claude Code with the `/runestone-workflow` command or natural language prompts like:
+
+- `"Create a workflow that fetches an API and filters the results"`
+- `"Add a condition node to branch on status code"`
+- `"Edit the workflow to add error handling"`
+
+The skill handles `.canvas` JSON files and node `.md` files, following Runestone's layout conventions and validation rules automatically.
+
 ## Development
 
 ```bash
