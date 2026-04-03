@@ -4,6 +4,8 @@ Build and execute workflows on Obsidian Canvas.
 
 Runestone turns canvas files into executable workflow diagrams. Nodes are notes with code blocks, edges define data flow, and execution supports sequential, parallel, conditional branching, and cycles.
 
+![runestone](./docs/screenshot.png)
+
 ## Features
 
 - Execute shell commands or JavaScript from canvas nodes
@@ -187,6 +189,21 @@ Once the skill is available, you can invoke it from Claude Code with the `/runes
 - `"Edit the workflow to add error handling"`
 
 The skill handles `.canvas` JSON files and node `.md` files, following Runestone's layout conventions and validation rules automatically.
+
+## Example Vault
+
+The [`vault.example/`](./vault.example/) directory contains an example Obsidian vault with a sample workflow. You can open it as a vault in Obsidian to try Runestone immediately.
+
+### Included Workflow: para-note
+
+A workflow that creates a new note following the [PARA method](https://fortelabs.com/blog/para/). It demonstrates:
+
+- **Interactive dialogs** — prompt and suggest nodes for user input
+- **Conditional branching** — routes to different folders (Projects, Areas, Resources, Archives) based on PARA type
+- **Args nodes** — reusable configuration passed to multiple nodes
+- **Join execution** — all branches converge to a final activation node
+
+To run: open `workflows/para-note/para-note.canvas` and click the play button.
 
 ## Development
 
