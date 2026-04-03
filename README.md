@@ -1,10 +1,14 @@
 # Runestone
 
+<p align="center">
+	<img src="./docs/runestone.png" width="400">
+</p>
+
 Build and execute workflows on Obsidian Canvas.
 
 Runestone turns canvas files into executable workflow diagrams. Nodes are notes with code blocks, edges define data flow, and execution supports sequential, parallel, conditional branching, and cycles.
 
-![runestone](./docs/screenshot.png)
+![screenshot](./docs/screenshot.png)
 
 ## Features
 
