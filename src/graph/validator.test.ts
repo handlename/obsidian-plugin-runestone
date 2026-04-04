@@ -186,6 +186,21 @@ describe("validate", () => {
 		}
 	});
 
+	it("fails when start node uses args template syntax", () => {
+		const graph = makeGraph(
+			[makeNode("a", "exec"), makeNode("b", "exec")],
+			[makeEdge("e1", "a", "b")],
+		);
+		const aNode = graph.nodes.get("a")!;
+		const modified = new Map(graph.nodes);
+		modified.set("a", { ...aNode, body: "echo {{args.name}}" });
+		const result = validate({ ...graph, nodes: modified });
+		expect(result.ok).toBe(false);
+		if (!result.ok) {
+			expect(result.errors.some((e) => e.includes("template") || e.includes("input"))).toBe(true);
+		}
+	});
+
 	it("fails when start node uses template syntax in exec config", () => {
 		const node: WorkflowNode = {
 			id: "a",
@@ -335,7 +350,7 @@ describe("validate", () => {
 			}
 		});
 
-		it("fails when args node connects to exec node", () => {
+		it("allows args node to connect to exec node", () => {
 			const graph = makeGraph(
 				[
 					makeNode("start", "exec"),
@@ -348,10 +363,7 @@ describe("validate", () => {
 				],
 			);
 			const result = validate(graph);
-			expect(result.ok).toBe(false);
-			if (!result.ok) {
-				expect(result.errors.some((e) => e.includes("args") && e.includes("exec"))).toBe(true);
-			}
+			expect(result.ok).toBe(true);
 		});
 
 		it("fails when args node has no outgoing edges", () => {
