@@ -1,0 +1,11 @@
+{
+	"nodes":[
+		{"id":"ae01","type":"file","file":"workflows/args-exec-example/start.md","x":-300,"y":0,"width":300,"height":200},
+		{"id":"ae02","type":"file","file":"workflows/args-exec-example/config.md","x":100,"y":-300,"width":300,"height":300},
+		{"id":"ae03","type":"file","file":"workflows/args-exec-example/greet.md","x":100,"y":0,"width":300,"height":200}
+	],
+	"edges":[
+		{"id":"aee01","fromNode":"ae01","fromSide":"right","toNode":"ae03","toSide":"left"},
+		{"id":"aee02","fromNode":"ae02","fromSide":"bottom","toNode":"ae03","toSide":"top"}
+	]
+}

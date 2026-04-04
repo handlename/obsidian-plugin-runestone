@@ -77,7 +77,7 @@ async function executeCanvasWorkflow(
 			runNode: async (node: WorkflowNode, input: readonly unknown[], args: Readonly<Record<string, unknown>>) => {
 				console.debug(`${LOG_PREFIX} Running node: ${node.filePath} (${node.config.type})`);
 				if (node.config.type === "exec") {
-					return runExecNode(node, input, execContext);
+					return runExecNode(node, input, execContext, args);
 				}
 				if (node.config.type === "args") {
 					return runArgsNode(node, app, obsidian);
