@@ -21,7 +21,7 @@ src/
     parser.ts          # Canvas JSON parsing, frontmatter extraction, code block extraction
     validator.ts       # Pre-execution validation (start node, cycles, templates, etc.)
   template/
-    template.ts        # {{input[n].key}} template resolution
+    template.ts        # {{input[n].key}} and {{args.key}} template resolution
   ui/
     canvas-visualizer.ts  # Real-time node/edge color updates on Canvas
     execution-state.ts    # Node status and result tracking
@@ -41,7 +41,7 @@ Four node types configured via `runestone.*` frontmatter in notes:
 
 | Type | Purpose | Input | Output |
 |------|---------|-------|--------|
-| `exec` | Run shell command | `{{input[n]}}` templates in body/frontmatter | stdout parsed as JSON |
+| `exec` | Run shell command | `{{input[n]}}` and `{{args.key}}` templates in body/frontmatter | stdout parsed as JSON |
 | `script` | Run JavaScript | `input`, `args`, `app`, `obsidian` variables | Return value as JSON |
 | `condition` | Branch execution | Same as script | Return value matched to edge labels |
 | `args` | Provide parameters | None (no incoming edges) | Merged into downstream `args` parameter |

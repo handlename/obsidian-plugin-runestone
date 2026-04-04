@@ -40,7 +40,7 @@ Runestone is an Obsidian plugin. It allows users to build and execute workflows 
 - The return value is passed to the connected downstream node as a separate `args` parameter, not as part of `input`
 - Multiple args nodes connected to the same target are merged into a single `args` object
 - args nodes must not have incoming edges
-- args nodes must not connect to other args nodes or exec nodes
+- args nodes must not connect to other args nodes
 
 ## Data Flow
 
@@ -52,6 +52,8 @@ Runestone is an Obsidian plugin. It allows users to build and execute workflows 
 
 - Input data can be referenced in Frontmatter values and note body using the `{{input[n].key}}` format
 - Even when a node has only one input, it is referenced as `{{input[0]}}`
+- Args data can be referenced in Frontmatter values and note body using the `{{args.key}}` format
+- Args templates are available in exec nodes (command body, `exec.env` values, `exec.workdir`)
 
 ### REQ-DATA-003: Multiple Inputs
 

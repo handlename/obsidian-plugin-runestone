@@ -54,7 +54,7 @@ Copy `main.js`, `styles.css`, and `manifest.json` to `<vault>/.obsidian/plugins/
 
 ### exec
 
-Executes a shell command. The first code block in the note body is run as a shell command. stdout must be valid JSON, which becomes the node output.
+Executes a shell command. The first code block in the note body is run as a shell command. stdout must be valid JSON, which becomes the node output. Both `{{input[n].key}}` and `{{args.key}}` template syntax can be used in the command body, `exec.env` values, and `exec.workdir`.
 
 ````markdown
 ---
@@ -62,7 +62,7 @@ runestone.type: exec
 ---
 
 ```bash
-echo '{"message": "hello"}'
+echo '{"message": "hello {{args.name}}"}'
 ```
 ````
 
@@ -99,7 +99,7 @@ Workflows may contain cycles. Every cycle must include a condition node with at 
 
 ### args
 
-Provides reusable parameters to downstream script/condition nodes. The code block executes JavaScript and must return a plain object. The result is passed as a separate `args` parameter (not via `input`). This enables reusing the same script node with different configurations.
+Provides reusable parameters to downstream nodes. The code block executes JavaScript and must return a plain object. The result is passed as a separate `args` parameter (not via `input`). This enables reusing the same node with different configurations.
 
 ````markdown
 ---
@@ -121,9 +121,15 @@ const items = args.items;
 // use items...
 ```
 
+In exec nodes, args are available via `{{args.key}}` template syntax:
+
+```bash
+echo '{"items": "{{args.items}}"}'
+```
+
 **Constraints:**
 - args nodes must not have incoming edges
-- args nodes cannot connect to other args nodes or exec nodes
+- args nodes cannot connect to other args nodes
 - Multiple args nodes to the same target are merged (key conflicts: last wins with console warning)
 
 ## Frontmatter Reference
