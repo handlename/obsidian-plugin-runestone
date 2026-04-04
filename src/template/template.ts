@@ -3,24 +3,40 @@ const TEMPLATE_RE = /\{\{(.+?)\}\}/g;
 // Matches property path segments: .key or [n]
 const SEGMENT_RE = /\.([a-zA-Z_$][a-zA-Z0-9_$]*)|(\[(\d+)\])/g;
 
-export function resolveTemplates(text: string, input: readonly unknown[]): string {
+export function resolveTemplates(
+	text: string,
+	input: readonly unknown[],
+	args: Readonly<Record<string, unknown>> = {},
+): string {
 	return text.replace(TEMPLATE_RE, (match, expr: string) => {
-		const value = evaluateExpression(expr.trim(), input);
+		const value = evaluateExpression(expr.trim(), input, args);
 		if (typeof value === "string") return value;
 		if (typeof value === "number" || typeof value === "boolean") return String(value);
 		return JSON.stringify(value);
 	});
 }
 
-function evaluateExpression(expr: string, input: readonly unknown[]): unknown {
-	if (!expr.startsWith("input")) {
-		throw new Error(`Template expression must start with "input": {{${expr}}}`);
+function evaluateExpression(
+	expr: string,
+	input: readonly unknown[],
+	args: Readonly<Record<string, unknown>>,
+): unknown {
+	let root: unknown;
+	let path: string;
+
+	if (expr.startsWith("input")) {
+		root = input;
+		path = expr.slice("input".length);
+	} else if (expr.startsWith("args")) {
+		root = args;
+		path = expr.slice("args".length);
+	} else {
+		throw new Error(`Template expression must start with "input" or "args": {{${expr}}}`);
 	}
 
-	const path = expr.slice("input".length);
 	const segments = parseSegments(path, expr);
 
-	let current: unknown = input;
+	let current: unknown = root;
 	for (const segment of segments) {
 		if (current === null || current === undefined) {
 			throw new Error(`Cannot access "${segment.key}" on ${current} in {{${expr}}}`);

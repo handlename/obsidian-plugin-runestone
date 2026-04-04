@@ -1,7 +1,7 @@
 import { ParsedGraph, WorkflowGraph } from "../types";
 import { extractCodeBlock } from "./parser";
 
-const TEMPLATE_RE = /\{\{input/;
+const TEMPLATE_RE = /\{\{(?:input|args)/;
 
 export type ValidationResult =
 	| { readonly ok: true; readonly graph: WorkflowGraph }
@@ -111,11 +111,6 @@ export function validate(graph: ParsedGraph): ValidationResult {
 				if (targetNode?.config.type === "args") {
 					errors.push(
 						`Args node "${node.id}" (${node.filePath}) must not connect to another args node "${edge.toNode}"`,
-					);
-				}
-				if (targetNode?.config.type === "exec") {
-					errors.push(
-						`Args node "${node.id}" (${node.filePath}) must not connect to exec node "${edge.toNode}"`,
 					);
 				}
 			}

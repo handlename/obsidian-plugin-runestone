@@ -13,6 +13,7 @@ export async function runExecNode(
 	node: WorkflowNode,
 	input: readonly unknown[],
 	context: ExecContext,
+	args: Readonly<Record<string, unknown>> = {},
 ): Promise<NodeResult> {
 	const startTime = Date.now();
 	try {
@@ -25,15 +26,15 @@ export async function runExecNode(
 				durationMs: Date.now() - startTime,
 			};
 		}
-		const command = resolveTemplates(code, input);
+		const command = resolveTemplates(code, input, args);
 
-		const workdir = resolveOptional(node.config.exec?.workdir, input)
+		const workdir = resolveOptional(node.config.exec?.workdir, input, args)
 			?? context.defaultWorkdir
 			?? context.vaultPath;
 
 		const shell = node.config.exec?.shell ?? context.defaultShell ?? undefined;
 
-		const env = buildEnv(node, input);
+		const env = buildEnv(node, input, args);
 
 		const { stdout, stderr } = await execAsync(command, { cwd: workdir, shell, env });
 
@@ -72,20 +73,25 @@ export async function runExecNode(
 	}
 }
 
-function resolveOptional(template: string | undefined, input: readonly unknown[]): string | undefined {
+function resolveOptional(
+	template: string | undefined,
+	input: readonly unknown[],
+	args: Readonly<Record<string, unknown>>,
+): string | undefined {
 	if (!template) return undefined;
-	return resolveTemplates(template, input);
+	return resolveTemplates(template, input, args);
 }
 
 function buildEnv(
 	node: WorkflowNode,
 	input: readonly unknown[],
+	args: Readonly<Record<string, unknown>>,
 ): Record<string, string> {
 	// eslint-disable-next-line no-undef
 	const env = { ...process.env } as Record<string, string>;
 	if (node.config.exec?.env) {
 		for (const [key, value] of Object.entries(node.config.exec.env)) {
-			env[key] = resolveTemplates(value, input);
+			env[key] = resolveTemplates(value, input, args);
 		}
 	}
 	return env;
