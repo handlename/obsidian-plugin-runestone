@@ -153,7 +153,7 @@ runestone.onError: continue
 
 ### Log Panel
 
-A dedicated Runestone view displaying each node's execution state, stdout, stderr, execution time, overall workflow progress, and stack traces/error messages on error. Clicking a node name opens the corresponding note.
+A dedicated Runestone view displaying each node's execution state, output (the structured return value), stdout, stderr, execution time, overall workflow progress, and stack traces/error messages on error. The `output` value is rendered as pretty-printed JSON and is shown for every node type (exec, script, condition, args), in addition to the raw stdout for exec nodes. Clicking a node name opens the corresponding note.
 
 ## Obsidian Concepts
 

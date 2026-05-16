@@ -1,6 +1,6 @@
 import { App, ItemView } from "obsidian";
 import { ExecutionState, NodeExecutionEntry } from "./execution-state";
-import { formatDuration } from "./format";
+import { formatDuration, formatOutput } from "./format";
 
 export const LOG_PANEL_VIEW_TYPE = "runestone-log-panel";
 
@@ -119,6 +119,11 @@ export class LogPanelView extends ItemView {
 		if (isExpanded && entry.result) {
 			const detail = entryEl.createDiv({ cls: "runestone-log-detail" });
 
+			const formattedOutput = formatOutput(entry.result.output);
+			if (formattedOutput !== null) {
+				detail.createDiv({ text: "output:", cls: "runestone-log-label" });
+				detail.createEl("pre", { text: formattedOutput, cls: "runestone-log-output" });
+			}
 			if (entry.result.stdout) {
 				detail.createDiv({ text: "stdout:", cls: "runestone-log-label" });
 				detail.createEl("pre", { text: entry.result.stdout, cls: "runestone-log-stdout" });

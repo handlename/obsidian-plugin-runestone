@@ -89,6 +89,7 @@ const STYLES = `
 	padding: 4px 0 4px 20px;
 }
 
+.runestone-log-output,
 .runestone-log-stdout,
 .runestone-log-stderr,
 .runestone-log-error {

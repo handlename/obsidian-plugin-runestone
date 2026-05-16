@@ -171,7 +171,8 @@ The following are validated before workflow execution:
 ### REQ-UI-002: Log Panel
 
 - Provide a dedicated log view
-- Display each node's execution state, stdout, stderr, and execution time
+- Display each node's execution state, output (the structured return value rendered as pretty-printed JSON), stdout, stderr, and execution time
+- The `output` section is shown for every node type whenever `output` is defined; it appears in addition to stdout for exec nodes (stdout is the raw text, output is its parsed form)
 - Clicking a node name opens the corresponding note
 - Display overall workflow progress (completed nodes / total nodes)
 - Display stack traces and error messages on error

@@ -17,7 +17,7 @@ Runestone turns canvas files into executable workflow diagrams. Nodes are notes 
 - Parallel execution when nodes have multiple outgoing edges
 - Data flow between nodes via template syntax (`{{input[n].property}}`)
 - Real-time execution visualization on canvas (status colors and overlays)
-- Log panel with per-node stdout/stderr and duration
+- Log panel with per-node output (pretty-printed JSON), stdout/stderr, and duration
 - Cycle support with configurable iteration limits
 - Per-node error handling (stop or continue)
 
