@@ -3,15 +3,22 @@ import * as obsidian from "obsidian";
 import { RunestoneSettings } from "../settings";
 import { buildParsedGraph } from "../graph/builder";
 import { validate } from "../graph/validator";
-import { executeWorkflow } from "../engine/executor";
+import { executeWorkflow, MarkerLifecycleEvent } from "../engine/executor";
 import { runExecNode, ExecContext } from "../engine/node-runners/exec-runner";
 import { runScriptNode } from "../engine/node-runners/script-runner";
 import { runConditionNode } from "../engine/node-runners/condition-runner";
 import { runArgsNode } from "../engine/node-runners/args-runner";
-import { NodeStatus, NodeResult, WorkflowNode, WorkflowEdge, ConditionResult } from "../types";
+import { NodeStatus, NodeResult, WorkflowNode, WorkflowEdge, ConditionResult, isWorkflowNode } from "../types";
 import { createExecutionState, updateExecutionState } from "../ui/execution-state";
 import { CanvasVisualizer } from "../ui/canvas-visualizer";
 import { activateLogPanel } from "../ui/log-panel-view";
+
+const MARKER_EVENT_COLOR: Record<MarkerLifecycleEvent, string> = {
+	"start-begin": "5",
+	"start-end": "4",
+	"end-reached": "4",
+	"end-unreached": "0",
+};
 
 const LOG_PREFIX = "[Runestone]";
 
@@ -93,13 +100,17 @@ async function executeCanvasWorkflow(
 			},
 			onNodeStatusChange: (nodeId: string, status: NodeStatus, result?: NodeResult) => {
 				const node = graph.nodes.get(nodeId);
-				console.debug(`${LOG_PREFIX} ${node?.filePath ?? nodeId}: ${status}`);
+				const label = node && isWorkflowNode(node) ? node.filePath : nodeId;
+				console.debug(`${LOG_PREFIX} ${label}: ${status}`);
 
 				updateExecutionState(executionState, nodeId, status, result);
 				visualizer.updateNode(nodeId, executionState);
 				if (logPanel) {
 					logPanel.refresh(executionState);
 				}
+			},
+			onMarkerStateChange: (nodeId: string, event: MarkerLifecycleEvent) => {
+				visualizer.updateMarkerNode(nodeId, MARKER_EVENT_COLOR[event]);
 			},
 		},
 		{
@@ -110,7 +121,7 @@ async function executeCanvasWorkflow(
 
 	for (const result of results) {
 		const node = graph.nodes.get(result.nodeId);
-		const name = node?.filePath ?? result.nodeId;
+		const name = node && isWorkflowNode(node) ? node.filePath : result.nodeId;
 		console.debug(`${LOG_PREFIX} ${name}: ${result.status} (${result.durationMs}ms)`);
 		if (result.stdout) console.debug(`${LOG_PREFIX} ${name} stdout: ${result.stdout}`);
 		if (result.stderr) console.error(`${LOG_PREFIX} ${name} stderr: ${result.stderr}`);
@@ -122,7 +133,8 @@ async function executeCanvasWorkflow(
 
 	if (failedResult) {
 		const failedNode = graph.nodes.get(failedResult.nodeId);
-		new Notice(`Runestone: Failed at ${failedNode?.filePath ?? failedResult.nodeId} — ${failedResult.error}`);
+		const failedName = failedNode && isWorkflowNode(failedNode) ? failedNode.filePath : failedResult.nodeId;
+		new Notice(`Runestone: Failed at ${failedName} — ${failedResult.error}`);
 	} else {
 		new Notice(`Runestone: Completed (${successCount} nodes executed)`);
 	}

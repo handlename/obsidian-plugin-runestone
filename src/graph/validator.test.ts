@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { validate } from "./validator";
-import { ParsedGraph, WorkflowNode, WorkflowEdge } from "../types";
+import { GraphNode, MarkerNode, ParsedGraph, WorkflowNode, WorkflowEdge } from "../types";
 
 function makeNode(id: string, type: "exec" | "script" | "condition" | "args", body = ""): WorkflowNode {
 	return {
@@ -11,31 +11,44 @@ function makeNode(id: string, type: "exec" | "script" | "condition" | "args", bo
 	};
 }
 
+function makeMarker(id: string, type: "start" | "end"): MarkerNode {
+	return { id, type };
+}
+
 function makeEdge(id: string, from: string, to: string, label?: string): WorkflowEdge {
 	return { id, fromNode: from, toNode: to, ...(label ? { label } : {}) };
 }
 
-function makeGraph(nodes: WorkflowNode[], edges: WorkflowEdge[]): ParsedGraph {
+function makeGraph(nodes: GraphNode[], edges: WorkflowEdge[]): ParsedGraph {
 	return {
 		nodes: new Map(nodes.map((n) => [n.id, n])),
 		edges,
 	};
 }
 
+// Convenience: create a graph with an implicit start marker pointing at firstNodeId.
+function makeGraphWithStart(firstNodeId: string, nodes: GraphNode[], edges: WorkflowEdge[]): ParsedGraph {
+	return makeGraph(
+		[makeMarker("__start__", "start"), ...nodes],
+		[makeEdge("__start_edge__", "__start__", firstNodeId), ...edges],
+	);
+}
+
 describe("validate", () => {
 	it("succeeds for a simple linear graph", () => {
-		const graph = makeGraph(
+		const graph = makeGraphWithStart(
+			"a",
 			[makeNode("a", "exec"), makeNode("b", "exec")],
 			[makeEdge("e1", "a", "b")],
 		);
 		const result = validate(graph);
 		expect(result.ok).toBe(true);
 		if (result.ok) {
-			expect(result.graph.startNodeId).toBe("a");
+			expect(result.graph.startNodeId).toBe("__start__");
 		}
 	});
 
-	it("fails when there are no start nodes", () => {
+	it("fails when there is no start marker", () => {
 		const graph = makeGraph(
 			[makeNode("a", "exec"), makeNode("b", "exec")],
 			[makeEdge("e1", "a", "b"), makeEdge("e2", "b", "a")],
@@ -47,17 +60,129 @@ describe("validate", () => {
 		}
 	});
 
-	it("fails when there are multiple start nodes", () => {
+	it("fails when there are multiple start markers", () => {
 		const graph = makeGraph(
-			[makeNode("a", "exec"), makeNode("b", "exec"), makeNode("c", "exec")],
-			[makeEdge("e1", "a", "c")],
+			[
+				makeMarker("s1", "start"),
+				makeMarker("s2", "start"),
+				makeNode("a", "exec"),
+			],
+			[
+				makeEdge("e1", "s1", "a"),
+				makeEdge("e2", "s2", "a"),
+			],
 		);
 		const result = validate(graph);
 		expect(result.ok).toBe(false);
+		if (!result.ok) {
+			expect(result.errors.some((e) => e.includes("Multiple start nodes"))).toBe(true);
+		}
+	});
+
+	it("fails when start marker has incoming edge", () => {
+		const graph = makeGraph(
+			[
+				makeMarker("s", "start"),
+				makeNode("a", "exec"),
+				makeNode("b", "exec"),
+			],
+			[
+				makeEdge("e1", "s", "a"),
+				makeEdge("e2", "a", "s"),
+				makeEdge("e3", "a", "b"),
+			],
+		);
+		const result = validate(graph);
+		expect(result.ok).toBe(false);
+		if (!result.ok) {
+			expect(result.errors.some((e) => e.includes("Start node") && e.includes("incoming"))).toBe(true);
+		}
+	});
+
+	it("fails when start marker has no outgoing edge", () => {
+		const graph = makeGraph(
+			[makeMarker("s", "start"), makeNode("a", "exec")],
+			[],
+		);
+		const result = validate(graph);
+		expect(result.ok).toBe(false);
+		if (!result.ok) {
+			expect(result.errors.some((e) => e.includes("Start node") && e.includes("outgoing"))).toBe(true);
+		}
+	});
+
+	it("succeeds with multiple end markers (zero or more)", () => {
+		const graph = makeGraph(
+			[
+				makeMarker("s", "start"),
+				makeNode("a", "exec"),
+				makeNode("b", "exec"),
+				makeMarker("e1", "end"),
+				makeMarker("e2", "end"),
+			],
+			[
+				makeEdge("se1", "s", "a"),
+				makeEdge("se2", "a", "b"),
+				makeEdge("se3", "a", "e1"),
+				makeEdge("se4", "b", "e2"),
+			],
+		);
+		const result = validate(graph);
+		expect(result.ok).toBe(true);
+	});
+
+	it("succeeds with zero end markers (optional)", () => {
+		const graph = makeGraphWithStart(
+			"a",
+			[makeNode("a", "exec"), makeNode("b", "exec")],
+			[makeEdge("e1", "a", "b")],
+		);
+		const result = validate(graph);
+		expect(result.ok).toBe(true);
+	});
+
+	it("fails when end marker has no incoming edges", () => {
+		const graph = makeGraph(
+			[
+				makeMarker("s", "start"),
+				makeNode("a", "exec"),
+				makeMarker("end1", "end"),
+			],
+			[
+				makeEdge("e1", "s", "a"),
+			],
+		);
+		const result = validate(graph);
+		expect(result.ok).toBe(false);
+		if (!result.ok) {
+			expect(result.errors.some((e) => e.includes("End node") && e.includes("incoming"))).toBe(true);
+		}
+	});
+
+	it("fails when end marker has outgoing edge", () => {
+		const graph = makeGraph(
+			[
+				makeMarker("s", "start"),
+				makeNode("a", "exec"),
+				makeMarker("end1", "end"),
+				makeNode("b", "exec"),
+			],
+			[
+				makeEdge("e1", "s", "a"),
+				makeEdge("e2", "a", "end1"),
+				makeEdge("e3", "end1", "b"),
+			],
+		);
+		const result = validate(graph);
+		expect(result.ok).toBe(false);
+		if (!result.ok) {
+			expect(result.errors.some((e) => e.includes("End node") && e.includes("outgoing"))).toBe(true);
+		}
 	});
 
 	it("fails when condition node has no labeled edges", () => {
-		const graph = makeGraph(
+		const graph = makeGraphWithStart(
+			"a",
 			[
 				makeNode("a", "exec"),
 				{ ...makeNode("b", "condition", "```js\nreturn 'yes';\n```"), config: { type: "condition", onError: "stop" } },
@@ -76,7 +201,8 @@ describe("validate", () => {
 	});
 
 	it("fails when condition node has more than one unlabeled edge", () => {
-		const graph = makeGraph(
+		const graph = makeGraphWithStart(
+			"a",
 			[
 				makeNode("a", "exec"),
 				{ ...makeNode("b", "condition", "```js\nreturn 'yes';\n```"), config: { type: "condition", onError: "stop" } },
@@ -99,7 +225,8 @@ describe("validate", () => {
 	});
 
 	it("succeeds for condition node with labeled + one default edge", () => {
-		const graph = makeGraph(
+		const graph = makeGraphWithStart(
+			"a",
 			[
 				makeNode("a", "exec"),
 				{ ...makeNode("b", "condition", "```js\nreturn 'yes';\n```"), config: { type: "condition", onError: "stop" } },
@@ -117,7 +244,8 @@ describe("validate", () => {
 	});
 
 	it("succeeds for condition node with only labeled edges and no default", () => {
-		const graph = makeGraph(
+		const graph = makeGraphWithStart(
+			"a",
 			[
 				makeNode("a", "exec"),
 				{ ...makeNode("b", "condition", "```js\nreturn 'yes';\n```"), config: { type: "condition", onError: "stop" } },
@@ -135,7 +263,8 @@ describe("validate", () => {
 	});
 
 	it("succeeds for condition node with single labeled edge only", () => {
-		const graph = makeGraph(
+		const graph = makeGraphWithStart(
+			"a",
 			[
 				makeNode("a", "exec"),
 				{ ...makeNode("b", "condition", "```js\nreturn 'yes';\n```"), config: { type: "condition", onError: "stop" } },
@@ -151,7 +280,8 @@ describe("validate", () => {
 	});
 
 	it("fails when condition node has no code block", () => {
-		const graph = makeGraph(
+		const graph = makeGraphWithStart(
+			"a",
 			[
 				makeNode("a", "exec"),
 				{ ...makeNode("b", "condition", "no code block"), config: { type: "condition", onError: "stop" } },
@@ -171,44 +301,46 @@ describe("validate", () => {
 		}
 	});
 
-	it("fails when start node uses template syntax", () => {
-		const graph = makeGraph(
-			[makeNode("a", "exec"), makeNode("b", "exec")],
+	it("fails when start-adjacent node uses input template syntax", () => {
+		const graph = makeGraphWithStart(
+			"a",
+			[
+				{ ...makeNode("a", "exec"), body: "echo {{input[0].name}}" },
+				makeNode("b", "exec"),
+			],
 			[makeEdge("e1", "a", "b")],
 		);
-		const aNode = graph.nodes.get("a")!;
-		const modified = new Map(graph.nodes);
-		modified.set("a", { ...aNode, body: "echo {{input[0].name}}" });
-		const result = validate({ ...graph, nodes: modified });
+		const result = validate(graph);
 		expect(result.ok).toBe(false);
 		if (!result.ok) {
 			expect(result.errors.some((e) => e.includes("template") || e.includes("input"))).toBe(true);
 		}
 	});
 
-	it("fails when start node uses args template syntax", () => {
-		const graph = makeGraph(
-			[makeNode("a", "exec"), makeNode("b", "exec")],
+	it("fails when start-adjacent node uses args template syntax", () => {
+		const graph = makeGraphWithStart(
+			"a",
+			[
+				{ ...makeNode("a", "exec"), body: "echo {{args.name}}" },
+				makeNode("b", "exec"),
+			],
 			[makeEdge("e1", "a", "b")],
 		);
-		const aNode = graph.nodes.get("a")!;
-		const modified = new Map(graph.nodes);
-		modified.set("a", { ...aNode, body: "echo {{args.name}}" });
-		const result = validate({ ...graph, nodes: modified });
+		const result = validate(graph);
 		expect(result.ok).toBe(false);
 		if (!result.ok) {
 			expect(result.errors.some((e) => e.includes("template") || e.includes("input"))).toBe(true);
 		}
 	});
 
-	it("fails when start node uses template syntax in exec config", () => {
+	it("fails when start-adjacent node uses template syntax in exec config", () => {
 		const node: WorkflowNode = {
 			id: "a",
 			filePath: "a.md",
 			config: { type: "exec", onError: "stop", exec: { workdir: "{{input[0].dir}}" } },
 			body: "echo hi",
 		};
-		const graph = makeGraph([node, makeNode("b", "exec")], [makeEdge("e1", "a", "b")]);
+		const graph = makeGraphWithStart("a", [node, makeNode("b", "exec")], [makeEdge("e1", "a", "b")]);
 		const result = validate(graph);
 		expect(result.ok).toBe(false);
 		if (!result.ok) {
@@ -217,7 +349,8 @@ describe("validate", () => {
 	});
 
 	it("fails when edge references non-existent node", () => {
-		const graph = makeGraph(
+		const graph = makeGraphWithStart(
+			"a",
 			[makeNode("a", "exec")],
 			[makeEdge("e1", "a", "nonexistent")],
 		);
@@ -229,7 +362,8 @@ describe("validate", () => {
 	});
 
 	it("succeeds for valid condition node", () => {
-		const graph = makeGraph(
+		const graph = makeGraphWithStart(
+			"a",
 			[
 				makeNode("a", "exec"),
 				{ ...makeNode("b", "condition", "```js\nreturn 'yes';\n```"), config: { type: "condition", onError: "stop" } },
@@ -247,7 +381,8 @@ describe("validate", () => {
 	});
 
 	it("succeeds for cycle with condition exit", () => {
-		const graph = makeGraph(
+		const graph = makeGraphWithStart(
+			"start",
 			[
 				makeNode("start", "exec"),
 				makeNode("a", "exec"),
@@ -266,7 +401,8 @@ describe("validate", () => {
 	});
 
 	it("validates correctly when nondirectional edges are pre-filtered by builder", () => {
-		const graph = makeGraph(
+		const graph = makeGraphWithStart(
+			"a",
 			[
 				makeNode("a", "exec"),
 				{ ...makeNode("b", "condition", "```js\nreturn 'yes';\n```"), config: { type: "condition", onError: "stop" } },
@@ -282,7 +418,8 @@ describe("validate", () => {
 	});
 
 	it("fails for cycle without condition exit", () => {
-		const graph = makeGraph(
+		const graph = makeGraphWithStart(
+			"a",
 			[makeNode("a", "exec"), makeNode("b", "exec")],
 			[makeEdge("e1", "a", "b"), makeEdge("e2", "b", "a")],
 		);
@@ -291,34 +428,32 @@ describe("validate", () => {
 	});
 
 	describe("args node validation", () => {
-		it("excludes args nodes from start node detection", () => {
-			const graph = makeGraph(
+		it("permits args nodes alongside the start marker", () => {
+			const graph = makeGraphWithStart(
+				"target",
 				[
-					makeNode("start", "exec"),
 					makeNode("myargs", "args", "```js\nreturn { x: 1 };\n```"),
 					makeNode("target", "script"),
 				],
 				[
-					makeEdge("e1", "start", "target"),
 					makeEdge("e2", "myargs", "target"),
 				],
 			);
 			const result = validate(graph);
 			expect(result.ok).toBe(true);
 			if (result.ok) {
-				expect(result.graph.startNodeId).toBe("start");
+				expect(result.graph.startNodeId).toBe("__start__");
 			}
 		});
 
 		it("fails when args node has incoming edges", () => {
-			const graph = makeGraph(
+			const graph = makeGraphWithStart(
+				"myargs",
 				[
-					makeNode("start", "exec"),
 					makeNode("myargs", "args", "```js\nreturn { x: 1 };\n```"),
 					makeNode("target", "script"),
 				],
 				[
-					makeEdge("e1", "start", "myargs"),
 					makeEdge("e2", "myargs", "target"),
 				],
 			);
@@ -330,15 +465,14 @@ describe("validate", () => {
 		});
 
 		it("fails when args node connects to another args node", () => {
-			const graph = makeGraph(
+			const graph = makeGraphWithStart(
+				"target",
 				[
-					makeNode("start", "exec"),
 					makeNode("args1", "args", "```js\nreturn { x: 1 };\n```"),
 					makeNode("args2", "args", "```js\nreturn { y: 2 };\n```"),
 					makeNode("target", "script"),
 				],
 				[
-					makeEdge("e1", "start", "target"),
 					makeEdge("e2", "args1", "args2"),
 					makeEdge("e3", "args2", "target"),
 				],
@@ -351,14 +485,13 @@ describe("validate", () => {
 		});
 
 		it("allows args node to connect to exec node", () => {
-			const graph = makeGraph(
+			const graph = makeGraphWithStart(
+				"target",
 				[
-					makeNode("start", "exec"),
 					makeNode("myargs", "args", "```js\nreturn { x: 1 };\n```"),
 					makeNode("target", "exec"),
 				],
 				[
-					makeEdge("e1", "start", "target"),
 					makeEdge("e2", "myargs", "target"),
 				],
 			);
@@ -367,7 +500,8 @@ describe("validate", () => {
 		});
 
 		it("fails when args node has no outgoing edges", () => {
-			const graph = makeGraph(
+			const graph = makeGraphWithStart(
+				"start",
 				[
 					makeNode("start", "exec"),
 					makeNode("myargs", "args", "```js\nreturn { x: 1 };\n```"),
@@ -382,14 +516,13 @@ describe("validate", () => {
 		});
 
 		it("fails when args node has no code block", () => {
-			const graph = makeGraph(
+			const graph = makeGraphWithStart(
+				"target",
 				[
-					makeNode("start", "exec"),
 					makeNode("myargs", "args", "no code block"),
 					makeNode("target", "script"),
 				],
 				[
-					makeEdge("e1", "start", "target"),
 					makeEdge("e2", "myargs", "target"),
 				],
 			);
@@ -401,14 +534,13 @@ describe("validate", () => {
 		});
 
 		it("succeeds with valid args node connected to script node", () => {
-			const graph = makeGraph(
+			const graph = makeGraphWithStart(
+				"target",
 				[
-					makeNode("start", "exec"),
 					makeNode("myargs", "args", "```js\nreturn { x: 1 };\n```"),
 					makeNode("target", "script"),
 				],
 				[
-					makeEdge("e1", "start", "target"),
 					makeEdge("e2", "myargs", "target"),
 				],
 			);
@@ -418,9 +550,9 @@ describe("validate", () => {
 
 		it("succeeds with args node connected to condition node", () => {
 			const condBody = "```js\nreturn 'yes';\n```";
-			const graph = makeGraph(
+			const graph = makeGraphWithStart(
+				"cond",
 				[
-					makeNode("start", "exec"),
 					makeNode("myargs", "args", "```js\nreturn { x: 1 };\n```"),
 					{
 						...makeNode("cond", "condition", condBody),
@@ -429,7 +561,6 @@ describe("validate", () => {
 					makeNode("target", "exec"),
 				],
 				[
-					makeEdge("e1", "start", "cond"),
 					makeEdge("e2", "myargs", "cond"),
 					makeEdge("e3", "cond", "target", "yes"),
 				],
@@ -439,15 +570,14 @@ describe("validate", () => {
 		});
 
 		it("succeeds with multiple args nodes to same target", () => {
-			const graph = makeGraph(
+			const graph = makeGraphWithStart(
+				"target",
 				[
-					makeNode("start", "exec"),
 					makeNode("args1", "args", "```js\nreturn { x: 1 };\n```"),
 					makeNode("args2", "args", "```js\nreturn { y: 2 };\n```"),
 					makeNode("target", "script"),
 				],
 				[
-					makeEdge("e1", "start", "target"),
 					makeEdge("e2", "args1", "target"),
 					makeEdge("e3", "args2", "target"),
 				],

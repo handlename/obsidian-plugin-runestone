@@ -6,7 +6,7 @@ This glossary defines domain-specific terms used in the Runestone Obsidian plugi
 
 ### Workflow Node
 
-A note referenced from a Canvas that acts as a step in a workflow. Must have `runestone.type` defined in Frontmatter. Only Canvas nodes of `type: "file"` are treated as workflow nodes.
+A note referenced from a Canvas that acts as a step in a workflow. Must have `runestone.type` defined in Frontmatter. Canvas nodes of `type: "file"` (for exec/script/condition/args nodes) and `type: "text"` containing the literals `runestone:start` or `runestone:end` (for Start Node / End Node markers) are treated as workflow nodes.
 
 ### exec Node
 
@@ -46,6 +46,31 @@ Executes JavaScript from a code block and provides the result as a separate `arg
 ---
 runestone.type: args
 ---
+```
+
+### start Node
+
+A payloadless marker node represented as a Canvas **text node** whose trimmed content equals the literal `runestone:start`. The start node identifies the entry point of the workflow.
+
+- Every workflow must contain **exactly one** start node.
+- The start node has **no incoming edges** and **one or more outgoing edges**.
+- It produces no output and is not displayed in the Log Panel.
+- Successors of the start node receive an empty input.
+
+```
+runestone:start
+```
+
+### end Node
+
+A payloadless marker node represented as a Canvas **text node** whose trimmed content equals the literal `runestone:end`. Reaching any end node halts the entire workflow gracefully: no new nodes are scheduled, but in-flight nodes are allowed to complete naturally.
+
+- A workflow may contain **zero or more** end nodes.
+- Each end node must have **one or more incoming edges** and **no outgoing edges**.
+- An end node produces no output and is not displayed in the Log Panel.
+
+```
+runestone:end
 ```
 
 ## Data Flow
@@ -91,7 +116,11 @@ An edge with both endpoints set to `"none"` (`fromEnd: "none"`, `toEnd: "none"`)
 
 ### Start Node
 
-The single node with no incoming edges. Every workflow must have exactly one start node.
+The unique text node containing `runestone:start`. Identifies the entry point of the workflow. Nodes reachable from the start node are executed; nodes that are not reachable (orphans) are silently ignored. See also: [start Node](#start-node).
+
+### End Node
+
+A text node containing `runestone:end`. Reaching any end node halts the entire workflow gracefully: no new nodes are scheduled, but in-flight nodes finish naturally. A workflow may have zero or more end nodes. See also: [end Node](#end-node).
 
 ### Parallel Execution
 
@@ -117,7 +146,7 @@ A Canvas file registered in plugin settings with a name. Can be executed from th
 
 ### Partial Execution
 
-Running a workflow starting from a specific node (via right-click context menu) instead of from the start node.
+Running a workflow starting from a specific node (via right-click context menu) instead of from the start node. Alternatively, move the `runestone:start` text node's outgoing edge to a different node to redirect the entry point for debugging — upstream nodes become unreachable and are silently skipped.
 
 ### Execution Environment
 
@@ -134,11 +163,25 @@ runestone.exec.env.API_KEY: "{{input[0].key}}"
 
 ### Pre-Execution Validation
 
-Checks performed before a workflow runs: exactly one start node exists, cycles have exit edges via a condition node, required Frontmatter properties are defined, template syntax references are valid, condition nodes have at least one labeled output edge and at most one unlabeled (default) edge, and contain a JavaScript code block.
+Checks performed before a workflow runs:
+
+- Exactly one start node (`runestone:start` text node) exists.
+- The start node has no incoming edges and at least one outgoing edge.
+- Every end node (`runestone:end` text node, zero or more) has at least one incoming edge and no outgoing edges.
+- Cycles have exit edges via a condition node.
+- Required Frontmatter properties are defined.
+- Template syntax references are valid.
+- Condition nodes have at least one labeled output edge and at most one unlabeled (default) edge, and contain a JavaScript code block.
 
 ### Node Status
 
 The execution state of a node. One of five states: Pending (not yet started), Running (currently executing), Success (completed successfully), Failure (error occurred), Skipped (not executed due to upstream error).
+
+Start and end marker nodes are not tracked through these five states (they have no payload). Instead, the Canvas visualizer paints their colors directly:
+
+- start node: `running` color while the workflow is active, `success` color when the workflow finishes.
+- end node that triggered the halt: `success` color.
+- end node that was not reached: `skipped` color.
 
 ### Error Behavior
 

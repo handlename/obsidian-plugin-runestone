@@ -1,4 +1,16 @@
-import { WorkflowGraph, WorkflowNode, WorkflowEdge, NodeResult, NodeStatus, ConditionResult } from "../types";
+import {
+	GraphNode,
+	WorkflowGraph,
+	WorkflowNode,
+	WorkflowEdge,
+	NodeResult,
+	NodeStatus,
+	ConditionResult,
+	isMarkerNode,
+	isWorkflowNode,
+} from "../types";
+
+export type MarkerLifecycleEvent = "start-begin" | "start-end" | "end-reached" | "end-unreached";
 
 export interface WorkflowCallbacks {
 	runNode: (node: WorkflowNode, input: readonly unknown[], args: Readonly<Record<string, unknown>>) => Promise<NodeResult>;
@@ -10,6 +22,7 @@ export interface WorkflowCallbacks {
 	) => Promise<ConditionResult>;
 	onNodeStatusChange: (nodeId: string, status: NodeStatus, result?: NodeResult) => void;
 	onEdgeCompleted?: (edgeId: string) => void;
+	onMarkerStateChange?: (nodeId: string, event: MarkerLifecycleEvent) => void;
 }
 
 export interface ExecutorOptions {
@@ -28,6 +41,7 @@ export async function executeWorkflow(
 	const nodeArgs = new Map<string, Record<string, unknown>>();
 	const completedEdges = new Set<string>();
 	const dismissedEdges = new Set<string>();
+	const reachedEndIds = new Set<string>();
 
 	const outgoingEdges = new Map<string, WorkflowEdge[]>();
 	const incomingEdges = new Map<string, WorkflowEdge[]>();
@@ -41,17 +55,51 @@ export async function executeWorkflow(
 		incomingEdges.set(edge.toNode, inc);
 	}
 
-	for (const nodeId of graph.nodes.keys()) {
-		callbacks.onNodeStatusChange(nodeId, "pending");
+	for (const node of graph.nodes.values()) {
+		if (!isWorkflowNode(node)) continue;
+		callbacks.onNodeStatusChange(node.id, "pending");
 	}
 
 	let aborted = false;
+	let halted = false;
+
+	function propagateFromMarkerStart(nodeId: string): Promise<void[]> {
+		const edges = outgoingEdges.get(nodeId) ?? [];
+		const promises: Promise<void>[] = [];
+		for (const edge of edges) {
+			completedEdges.add(edge.id);
+			callbacks.onEdgeCompleted?.(edge.id);
+			const targetId = edge.toNode;
+			const targetIncoming = incomingEdges.get(targetId) ?? [];
+			// Start carries no output; successors receive whatever non-start
+			// edges contribute, or [] when start is the only source.
+			const allSatisfied = targetIncoming.every((e) => completedEdges.has(e.id) || dismissedEdges.has(e.id));
+			if (allSatisfied) {
+				const inputs = nodeInputs.get(targetId) ?? [];
+				promises.push(executeNode(targetId, inputs));
+			}
+		}
+		return Promise.all(promises);
+	}
 
 	async function executeNode(nodeId: string, input: readonly unknown[]): Promise<void> {
-		if (aborted) return;
+		if (aborted || halted) return;
 
 		const node = graph.nodes.get(nodeId);
 		if (!node) return;
+
+		if (isMarkerNode(node)) {
+			if (node.type === "start") {
+				callbacks.onMarkerStateChange?.(nodeId, "start-begin");
+				await propagateFromMarkerStart(nodeId);
+				return;
+			}
+			// end marker
+			reachedEndIds.add(nodeId);
+			callbacks.onMarkerStateChange?.(nodeId, "end-reached");
+			halted = true;
+			return;
+		}
 
 		const count = (executionCounts.get(nodeId) ?? 0) + 1;
 		executionCounts.set(nodeId, count);
@@ -94,12 +142,10 @@ export async function executeWorkflow(
 			}
 
 			if (node.config.type === "args") {
-				// Dismiss outgoing edges so join logic skips the target
 				const edges = outgoingEdges.get(nodeId) ?? [];
 				for (const edge of edges) {
 					dismissedEdges.add(edge.id);
 				}
-				// Check if any target can now proceed (all incoming satisfied)
 				for (const edge of edges) {
 					const targetId = edge.toNode;
 					const targetIncoming = incomingEdges.get(targetId) ?? [];
@@ -107,7 +153,8 @@ export async function executeWorkflow(
 					if (allSatisfied) {
 						const anyArgsEdgeDismissed = targetIncoming.some((e) => {
 							const sourceNode = graph.nodes.get(e.fromNode);
-							if (sourceNode?.config.type !== "args") return false;
+							if (!sourceNode || !isWorkflowNode(sourceNode)) return false;
+							if (sourceNode.config.type !== "args") return false;
 							return dismissedEdges.has(e.id);
 						});
 						if (anyArgsEdgeDismissed) {
@@ -140,8 +187,6 @@ export async function executeWorkflow(
 						dismissedEdges.add(e.id);
 					}
 				}
-				// Skip non-selected targets and dismiss their outgoing edges,
-				// so that downstream join nodes can proceed
 				propagateConditionDismissals(
 					edges.filter((e) => e.id !== selectedEdgeId),
 					graph, outgoingEdges, incomingEdges, dismissedEdges, completedEdges,
@@ -162,7 +207,6 @@ export async function executeWorkflow(
 			const targetIncoming = incomingEdges.get(targetId) ?? [];
 
 			if (node.config.type === "args") {
-				// Merge args output into target's args object
 				const currentArgs = nodeArgs.get(targetId) ?? {};
 				const argsOutput = result.output as Record<string, unknown> ?? {};
 				const existingKeys = Object.keys(currentArgs);
@@ -173,8 +217,6 @@ export async function executeWorkflow(
 				}
 				nodeArgs.set(targetId, { ...currentArgs, ...argsOutput });
 			} else if (node.config.type === "condition" && Array.isArray(result.output)) {
-				// Condition nodes pass through their original input array,
-				// so spread it to avoid double-nesting
 				const inputs = nodeInputs.get(targetId) ?? [];
 				inputs.push(...(result.output as unknown[]));
 				nodeInputs.set(targetId, inputs);
@@ -184,12 +226,10 @@ export async function executeWorkflow(
 				nodeInputs.set(targetId, inputs);
 			}
 
-			// If target was previously executed (not just skipped), this is a cycle re-entry
 			const isCycleReentry = (executionCounts.get(targetId) ?? 0) > 0;
 			const allSatisfied = isCycleReentry || targetIncoming.every((e) => completedEdges.has(e.id) || dismissedEdges.has(e.id));
 			if (allSatisfied) {
 				if (isCycleReentry) {
-					// Reset inputs for cycle re-entry
 					nodeInputs.set(targetId, [result.output]);
 					promises.push(executeNode(targetId, [result.output]));
 				} else {
@@ -201,7 +241,8 @@ export async function executeWorkflow(
 
 					const anyArgsEdgeDismissed = targetIncoming.some((e) => {
 						const sourceNode = graph.nodes.get(e.fromNode);
-						if (sourceNode?.config.type !== "args") return false;
+						if (!sourceNode || !isWorkflowNode(sourceNode)) return false;
+						if (sourceNode.config.type !== "args") return false;
 						return dismissedEdges.has(e.id);
 					});
 
@@ -226,23 +267,45 @@ export async function executeWorkflow(
 	}
 
 	const effectiveStartNodeId = options.startNodeIdOverride ?? graph.startNodeId;
+	const startMarker = graph.nodes.get(graph.startNodeId);
+	const isStartMarker = !!startMarker && isMarkerNode(startMarker) && startMarker.type === "start";
+	const usingMarkerAsEntry = isStartMarker && effectiveStartNodeId === graph.startNodeId;
 
 	const argsNodeIds: string[] = [];
 	for (const node of graph.nodes.values()) {
+		if (!isWorkflowNode(node)) continue;
 		if (node.config.type === "args") {
 			argsNodeIds.push(node.id);
 		}
 	}
 
-	const startPromises: Promise<void>[] = [executeNode(effectiveStartNodeId, [])];
+	const startPromises: Promise<void>[] = [];
+	if (usingMarkerAsEntry) {
+		callbacks.onMarkerStateChange?.(graph.startNodeId, "start-begin");
+		startPromises.push(propagateFromMarkerStart(graph.startNodeId).then(() => undefined));
+	} else {
+		startPromises.push(executeNode(effectiveStartNodeId, []));
+	}
 	for (const argsId of argsNodeIds) {
 		startPromises.push(executeNode(argsId, []));
 	}
 	await Promise.all(startPromises);
 
-	for (const nodeId of graph.nodes.keys()) {
-		if (!results.has(nodeId)) {
-			results.set(nodeId, { nodeId, status: "skipped", durationMs: 0 });
+	if (usingMarkerAsEntry) {
+		callbacks.onMarkerStateChange?.(graph.startNodeId, "start-end");
+	}
+
+	for (const node of graph.nodes.values()) {
+		if (!isMarkerNode(node) || node.type !== "end") continue;
+		if (!reachedEndIds.has(node.id)) {
+			callbacks.onMarkerStateChange?.(node.id, "end-unreached");
+		}
+	}
+
+	for (const node of graph.nodes.values()) {
+		if (!isWorkflowNode(node)) continue;
+		if (!results.has(node.id)) {
+			results.set(node.id, { nodeId: node.id, status: "skipped", durationMs: 0 });
 		}
 	}
 
@@ -254,19 +317,16 @@ function skipAllPending(
 	results: Map<string, NodeResult>,
 	callbacks: WorkflowCallbacks,
 ): void {
-	for (const nodeId of graph.nodes.keys()) {
-		if (!results.has(nodeId)) {
-			const skipResult: NodeResult = { nodeId, status: "skipped", durationMs: 0 };
-			results.set(nodeId, skipResult);
-			callbacks.onNodeStatusChange(nodeId, "skipped", skipResult);
+	for (const node of graph.nodes.values()) {
+		if (!isWorkflowNode(node)) continue;
+		if (!results.has(node.id)) {
+			const skipResult: NodeResult = { nodeId: node.id, status: "skipped", durationMs: 0 };
+			results.set(node.id, skipResult);
+			callbacks.onNodeStatusChange(node.id, "skipped", skipResult);
 		}
 	}
 }
 
-// Propagate condition dismissals: skip non-selected targets and dismiss
-// their outgoing edges. Only skip a node if ALL its incoming edges are
-// dismissed (i.e. no other live branch feeds into it). This allows join
-// nodes with a mix of live and dismissed incoming edges to still execute.
 function propagateConditionDismissals(
 	dismissedConditionEdges: WorkflowEdge[],
 	graph: WorkflowGraph,
@@ -282,12 +342,24 @@ function propagateConditionDismissals(
 		const targetId = queue.shift()!;
 		if (results.has(targetId)) continue;
 
+		const target = graph.nodes.get(targetId);
+		// Markers don't have execution status; skip without touching results
+		if (target && !isWorkflowNode(target)) {
+			const targetIncoming = incomingEdges.get(targetId) ?? [];
+			const allDismissed = targetIncoming.every((e) => dismissedEdges.has(e.id));
+			if (!allDismissed) continue;
+			const targetOutgoing = outgoingEdges.get(targetId) ?? [];
+			for (const e of targetOutgoing) {
+				dismissedEdges.add(e.id);
+				queue.push(e.toNode);
+			}
+			continue;
+		}
+
 		const targetIncoming = incomingEdges.get(targetId) ?? [];
-		// Args edges provide configuration, not execution flow.
-		// A node is skippable when all non-args incoming edges are dismissed.
 		const allExecutionEdgesDismissed = targetIncoming.every((e) => {
 			const sourceNode = graph.nodes.get(e.fromNode);
-			if (sourceNode?.config.type === "args") return true;
+			if (sourceNode && isWorkflowNode(sourceNode) && sourceNode.config.type === "args") return true;
 			return dismissedEdges.has(e.id);
 		});
 		if (!allExecutionEdgesDismissed) continue;
@@ -313,11 +385,19 @@ function skipDownstream(
 ): void {
 	const edges = outgoingEdges.get(nodeId) ?? [];
 	for (const edge of edges) {
-		if (!results.has(edge.toNode)) {
-			const skipResult: NodeResult = { nodeId: edge.toNode, status: "skipped", durationMs: 0 };
-			results.set(edge.toNode, skipResult);
-			callbacks.onNodeStatusChange(edge.toNode, "skipped", skipResult);
+		if (results.has(edge.toNode)) continue;
+		const targetNode = graph.nodes.get(edge.toNode);
+		if (targetNode && !isWorkflowNode(targetNode)) {
+			// Skip marker propagation without modifying results
 			skipDownstream(edge.toNode, graph, outgoingEdges, results, callbacks);
+			continue;
 		}
+		const skipResult: NodeResult = { nodeId: edge.toNode, status: "skipped", durationMs: 0 };
+		results.set(edge.toNode, skipResult);
+		callbacks.onNodeStatusChange(edge.toNode, "skipped", skipResult);
+		skipDownstream(edge.toNode, graph, outgoingEdges, results, callbacks);
 	}
 }
+
+// Re-export GraphNode for callers that need the union type
+export type { GraphNode };

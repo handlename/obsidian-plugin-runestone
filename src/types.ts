@@ -31,7 +31,9 @@ export interface CanvasEdge {
 
 // Internal types
 
-export type RunestoneNodeType = "exec" | "script" | "condition" | "args";
+export type RunestoneNodeType = "exec" | "script" | "condition" | "args" | "start" | "end";
+
+export type MarkerNodeType = "start" | "end";
 
 export interface RunestoneConfig {
 	readonly type: RunestoneNodeType;
@@ -50,6 +52,21 @@ export interface WorkflowNode {
 	readonly body: string;
 }
 
+export interface MarkerNode {
+	readonly id: string;
+	readonly type: MarkerNodeType;
+}
+
+export type GraphNode = WorkflowNode | MarkerNode;
+
+export function isMarkerNode(node: GraphNode): node is MarkerNode {
+	return (node as MarkerNode).type === "start" || (node as MarkerNode).type === "end";
+}
+
+export function isWorkflowNode(node: GraphNode): node is WorkflowNode {
+	return !isMarkerNode(node);
+}
+
 export interface WorkflowEdge {
 	readonly id: string;
 	readonly fromNode: string;
@@ -58,7 +75,7 @@ export interface WorkflowEdge {
 }
 
 export interface ParsedGraph {
-	readonly nodes: ReadonlyMap<string, WorkflowNode>;
+	readonly nodes: ReadonlyMap<string, GraphNode>;
 	readonly edges: readonly WorkflowEdge[];
 }
 

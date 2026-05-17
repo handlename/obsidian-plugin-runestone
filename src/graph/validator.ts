@@ -1,4 +1,4 @@
-import { ParsedGraph, WorkflowGraph } from "../types";
+import { GraphNode, ParsedGraph, WorkflowGraph, isMarkerNode, isWorkflowNode } from "../types";
 import { extractCodeBlock } from "./parser";
 
 const TEMPLATE_RE = /\{\{(?:input|args)/;
@@ -18,6 +18,13 @@ export function validate(graph: ParsedGraph): ValidationResult {
 		incomingCount.set(edge.toNode, (incomingCount.get(edge.toNode) ?? 0) + 1);
 	}
 
+	const outgoingEdges = new Map<string, typeof graph.edges[number][]>();
+	for (const edge of graph.edges) {
+		const list = outgoingEdges.get(edge.fromNode) ?? [];
+		list.push(edge);
+		outgoingEdges.set(edge.fromNode, list);
+	}
+
 	// Edge endpoint validity
 	for (const edge of graph.edges) {
 		if (!graph.nodes.has(edge.fromNode)) {
@@ -28,45 +35,76 @@ export function validate(graph: ParsedGraph): ValidationResult {
 		}
 	}
 
-	// Single start node (exclude args nodes)
-	const startNodes: string[] = [];
-	for (const [nodeId, count] of incomingCount) {
-		const node = graph.nodes.get(nodeId);
-		if (count === 0 && node?.config.type !== "args") startNodes.push(nodeId);
+	// Locate marker nodes
+	const startMarkers: GraphNode[] = [];
+	const endMarkers: GraphNode[] = [];
+	for (const node of graph.nodes.values()) {
+		if (!isMarkerNode(node)) continue;
+		if (node.type === "start") startMarkers.push(node);
+		if (node.type === "end") endMarkers.push(node);
 	}
 
-	if (startNodes.length === 0) {
-		errors.push("No start node found (a node with no incoming edges is required)");
-	} else if (startNodes.length > 1) {
-		errors.push(`Multiple start nodes found: ${startNodes.join(", ")}. Exactly one is required`);
+	if (startMarkers.length === 0) {
+		errors.push(
+			"No start node found. Add a Canvas text node with the content `runestone:start`.",
+		);
+	} else if (startMarkers.length > 1) {
+		const ids = startMarkers.map((n) => n.id).join(", ");
+		errors.push(`Multiple start nodes found: ${ids}. Exactly one is required.`);
 	}
 
-	// Template reference validity (start nodes must not use templates)
-	for (const startId of startNodes) {
-		const node = graph.nodes.get(startId);
-		if (!node) continue;
-		const textsToCheck = [node.body];
-		if (node.config.exec?.workdir) textsToCheck.push(node.config.exec.workdir);
-		if (node.config.exec?.env) {
-			textsToCheck.push(...Object.values(node.config.exec.env));
+	for (const startNode of startMarkers) {
+		const incoming = incomingCount.get(startNode.id) ?? 0;
+		if (incoming > 0) {
+			errors.push(`Start node "${startNode.id}" must not have incoming edges`);
 		}
-		for (const text of textsToCheck) {
-			if (TEMPLATE_RE.test(text)) {
-				errors.push(`Start node "${startId}" (${node.filePath}) uses template syntax but has no input`);
-				break;
+		const out = outgoingEdges.get(startNode.id) ?? [];
+		if (out.length === 0) {
+			errors.push(`Start node "${startNode.id}" must have at least one outgoing edge`);
+		}
+	}
+
+	for (const endNode of endMarkers) {
+		const incoming = incomingCount.get(endNode.id) ?? 0;
+		if (incoming === 0) {
+			errors.push(`End node "${endNode.id}" must have at least one incoming edge`);
+		}
+		const out = outgoingEdges.get(endNode.id) ?? [];
+		if (out.length > 0) {
+			errors.push(`End node "${endNode.id}" must not have outgoing edges`);
+		}
+	}
+
+	// Template reference validity (immediate successors of start have no input)
+	if (startMarkers.length === 1) {
+		const startNode = startMarkers[0]!;
+		const startOut = outgoingEdges.get(startNode.id) ?? [];
+		for (const edge of startOut) {
+			const target = graph.nodes.get(edge.toNode);
+			if (!target || !isWorkflowNode(target)) continue;
+			const targetIncoming = incomingCount.get(target.id) ?? 0;
+			// Only flag successors whose ONLY incoming edge is from the start marker
+			if (targetIncoming !== 1) continue;
+			const textsToCheck = [target.body];
+			if (target.config.exec?.workdir) textsToCheck.push(target.config.exec.workdir);
+			if (target.config.exec?.env) {
+				textsToCheck.push(...Object.values(target.config.exec.env));
+			}
+			for (const text of textsToCheck) {
+				if (TEMPLATE_RE.test(text)) {
+					errors.push(
+						`Node "${target.id}" (${target.filePath}) is immediately downstream of the start marker and has no input, but uses template syntax`,
+					);
+					break;
+				}
 			}
 		}
 	}
 
-	// Per-node checks
-	const outgoingEdges = new Map<string, typeof graph.edges[number][]>();
-	for (const edge of graph.edges) {
-		const list = outgoingEdges.get(edge.fromNode) ?? [];
-		list.push(edge);
-		outgoingEdges.set(edge.fromNode, list);
-	}
-
+	// Per-node checks (workflow nodes only)
 	for (const node of graph.nodes.values()) {
+		if (!isWorkflowNode(node)) continue;
+
 		if (node.config.type === "condition") {
 			const outEdges = outgoingEdges.get(node.id) ?? [];
 
@@ -108,7 +146,7 @@ export function validate(graph: ParsedGraph): ValidationResult {
 
 			for (const edge of outEdges) {
 				const targetNode = graph.nodes.get(edge.toNode);
-				if (targetNode?.config.type === "args") {
+				if (targetNode && isWorkflowNode(targetNode) && targetNode.config.type === "args") {
 					errors.push(
 						`Args node "${node.id}" (${node.filePath}) must not connect to another args node "${edge.toNode}"`,
 					);
@@ -128,7 +166,7 @@ export function validate(graph: ParsedGraph): ValidationResult {
 	for (const cycle of cycles) {
 		const hasConditionExit = cycle.some((nodeId) => {
 			const node = graph.nodes.get(nodeId);
-			if (node?.config.type !== "condition") return false;
+			if (!node || !isWorkflowNode(node) || node.config.type !== "condition") return false;
 			const outEdges = outgoingEdges.get(nodeId) ?? [];
 			return outEdges.some((e) => !cycle.includes(e.toNode));
 		});
@@ -143,7 +181,7 @@ export function validate(graph: ParsedGraph): ValidationResult {
 
 	return {
 		ok: true,
-		graph: { ...graph, startNodeId: startNodes[0]! },
+		graph: { ...graph, startNodeId: startMarkers[0]!.id },
 	};
 }
 
