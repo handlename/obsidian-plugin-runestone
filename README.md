@@ -37,11 +37,14 @@ Copy `main.js`, `styles.css`, and `manifest.json` to `<vault>/.obsidian/plugins/
 ### Creating a Workflow
 
 1. Create a new canvas file (or use the "New workflow" command)
-2. Add note nodes to the canvas. Each note needs:
+2. Add a Canvas **text node** containing exactly `runestone:start`. This marks the workflow entry point. Every workflow must have exactly one start marker.
+3. Add note nodes to the canvas. Each note needs:
    - Frontmatter with `runestone.type` set to `exec`, `script`, or `condition`
    - A code block containing the command or script to run
-3. Connect nodes with edges to define execution order
-4. The node with no incoming edges becomes the start node
+4. Connect the `runestone:start` text node to the first note, then connect the remaining notes with edges to define execution order
+5. (Optional) Add `runestone:end` text nodes where execution should halt. Reaching any end marker stops the entire workflow gracefully.
+
+> Upgrading from v0.2 or earlier? See [MIGRATION.md](./MIGRATION.md) for the v0.3 breaking changes.
 
 ### Running a Workflow
 
@@ -132,6 +135,24 @@ echo '{"items": "{{args.items}}"}'
 - args nodes cannot connect to other args nodes
 - Multiple args nodes to the same target are merged (key conflicts: last wins with console warning)
 
+### start
+
+A Canvas **text node** whose trimmed content is exactly `runestone:start`. Marks the workflow entry point. Has no payload and produces no output. Every workflow must contain exactly one start marker, with no incoming edges and one or more outgoing edges. Successors of the start marker receive an empty input.
+
+```
+runestone:start
+```
+
+Moving the start marker's outgoing edge to a different node is a quick way to redirect the entry point for partial-execution debugging — nodes that become unreachable are silently skipped.
+
+### end
+
+A Canvas **text node** whose trimmed content is exactly `runestone:end`. Marks a halt point. Reaching any end marker stops the workflow gracefully: no new nodes are scheduled, but in-flight `exec` and `script` nodes complete naturally. A workflow may contain zero or more end markers; each must have one or more incoming edges and no outgoing edges.
+
+```
+runestone:end
+```
+
 ## Frontmatter Reference
 
 All properties use the `runestone.` prefix. Properties without this prefix are ignored.
@@ -166,7 +187,7 @@ Nodes can reference outputs from upstream nodes using `{{input[n].property}}`.
 - Multiple templates in one string: `echo '{"a": "{{input[0].x}}", "b": "{{input[1].y}}"}'`
 - Strings are passed as-is; numbers and booleans are converted to strings; objects and arrays are converted to JSON
 
-Start nodes (no incoming edges) cannot use template syntax.
+The immediate successors of the `runestone:start` marker receive an empty input (`[{}]`), so `{{input[0].key}}` references are not meaningful there. Use `args` nodes to supply parameters to start-adjacent nodes.
 
 ## Settings
 
