@@ -3,6 +3,7 @@ import {
 	parseCanvasJson,
 	parseRunestoneConfig,
 	extractCodeBlock,
+	parseTextMarker,
 } from "./parser";
 import { extractFrontmatterBody } from "./builder";
 
@@ -128,5 +129,41 @@ describe("extractFrontmatterBody", () => {
 
 	it("handles frontmatter with trailing newline", () => {
 		expect(extractFrontmatterBody("---\nkey: val\n---\n\nbody")).toBe("\nbody");
+	});
+});
+
+describe("parseTextMarker", () => {
+	// B1
+	it("recognizes the literal start marker", () => {
+		expect(parseTextMarker("runestone:start")).toBe("start");
+	});
+
+	// B2
+	it("recognizes the literal end marker", () => {
+		expect(parseTextMarker("runestone:end")).toBe("end");
+	});
+
+	// B1/B2: trims surrounding whitespace
+	it("trims surrounding whitespace before matching", () => {
+		expect(parseTextMarker("  runestone:start  \n")).toBe("start");
+		expect(parseTextMarker("\trunestone:end\n")).toBe("end");
+	});
+
+	// B3
+	it("returns null for non-marker text", () => {
+		expect(parseTextMarker("hello world")).toBeNull();
+		expect(parseTextMarker("runestone:startup")).toBeNull();
+		expect(parseTextMarker("runestone:end please")).toBeNull();
+		expect(parseTextMarker("")).toBeNull();
+	});
+
+	// B3: case sensitivity
+	it("is case-sensitive", () => {
+		expect(parseTextMarker("Runestone:Start")).toBeNull();
+		expect(parseTextMarker("RUNESTONE:END")).toBeNull();
+	});
+
+	it("returns null for undefined input", () => {
+		expect(parseTextMarker(undefined)).toBeNull();
 	});
 });

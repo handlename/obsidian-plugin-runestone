@@ -1,7 +1,18 @@
-import { CanvasData, RunestoneConfig, RunestoneNodeType } from "../types";
+import { CanvasData, MarkerNodeType, RunestoneConfig, RunestoneNodeType } from "../types";
 
 const VALID_NODE_TYPES: readonly string[] = ["exec", "script", "condition", "args"];
 const CODE_BLOCK_RE = /```[^\n]*\n([\s\S]*?)```/;
+
+const START_MARKER = "runestone:start";
+const END_MARKER = "runestone:end";
+
+export function parseTextMarker(text: string | undefined): MarkerNodeType | null {
+	if (typeof text !== "string") return null;
+	const trimmed = text.trim();
+	if (trimmed === START_MARKER) return "start";
+	if (trimmed === END_MARKER) return "end";
+	return null;
+}
 
 export function parseCanvasJson(json: string): CanvasData {
 	try {

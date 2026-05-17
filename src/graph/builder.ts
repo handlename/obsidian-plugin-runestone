@@ -1,6 +1,6 @@
 import { App, TFile } from "obsidian";
-import { ParsedGraph, WorkflowNode, WorkflowEdge, CanvasNode, CanvasEdge } from "../types";
-import { parseCanvasJson, parseRunestoneConfig } from "./parser";
+import { GraphNode, ParsedGraph, WorkflowEdge, CanvasNode, CanvasEdge } from "../types";
+import { parseCanvasJson, parseRunestoneConfig, parseTextMarker } from "./parser";
 
 export function isNondirectionalEdge(edge: CanvasEdge): boolean {
 	return edge.fromEnd === "none" && edge.toEnd === "none";
@@ -15,11 +15,12 @@ export async function buildParsedGraph(app: App, canvasFilePath: string): Promis
 	const canvasJson = await app.vault.read(canvasFile);
 	const canvasData = parseCanvasJson(canvasJson);
 
+	const nodes = new Map<string, GraphNode>();
+
 	const fileNodes = canvasData.nodes.filter(
 		(n): n is CanvasNode & { file: string } => n.type === "file" && typeof n.file === "string",
 	);
 
-	const nodes = new Map<string, WorkflowNode>();
 	for (const canvasNode of fileNodes) {
 		const noteFile = app.vault.getAbstractFileByPath(canvasNode.file);
 		if (!(noteFile instanceof TFile)) continue;
@@ -36,6 +37,19 @@ export async function buildParsedGraph(app: App, canvasFilePath: string): Promis
 			filePath: canvasNode.file,
 			config,
 			body,
+		});
+	}
+
+	const textNodes = canvasData.nodes.filter(
+		(n): n is CanvasNode & { text: string } => n.type === "text" && typeof n.text === "string",
+	);
+
+	for (const canvasNode of textNodes) {
+		const markerType = parseTextMarker(canvasNode.text);
+		if (!markerType) continue;
+		nodes.set(canvasNode.id, {
+			id: canvasNode.id,
+			type: markerType,
 		});
 	}
 
