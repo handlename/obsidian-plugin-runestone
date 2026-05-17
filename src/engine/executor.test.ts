@@ -355,7 +355,7 @@ describe("executeWorkflow", () => {
 			"a",
 		);
 		const statusChanges: { nodeId: string; status: string; hasResult: boolean }[] = [];
-		const results = await executeWorkflow(graph, mockCallbacks({
+		await executeWorkflow(graph, mockCallbacks({
 			onNodeStatusChange: (nodeId, status, result) => {
 				statusChanges.push({ nodeId, status, hasResult: result !== undefined });
 			},
@@ -379,7 +379,7 @@ describe("executeWorkflow", () => {
 			"a",
 		);
 		const executed: string[] = [];
-		const results = await executeWorkflow(graph, mockCallbacks({
+		await executeWorkflow(graph, mockCallbacks({
 			runNode: async (node) => {
 				executed.push(node.id);
 				return { nodeId: node.id, status: "success", output: { from: node.id }, durationMs: 1 };
