@@ -1,9 +1,19 @@
 import { describe, it, expect } from "vitest";
 import { createExecutionState, updateExecutionState } from "./execution-state";
-import { NodeResult } from "../types";
+import { GraphNode, NodeResult, WorkflowNode } from "../types";
 
-function makeNodeMap(ids: string[]): ReadonlyMap<string, { id: string; filePath: string }> {
-	return new Map(ids.map((id) => [id, { id, filePath: `${id}.md` }]));
+function makeNodeMap(ids: string[]): ReadonlyMap<string, GraphNode> {
+	return new Map<string, GraphNode>(
+		ids.map((id): [string, WorkflowNode] => [
+			id,
+			{
+				id,
+				filePath: `${id}.md`,
+				config: { type: "exec", onError: "stop" },
+				body: "",
+			},
+		]),
+	);
 }
 
 describe("createExecutionState", () => {

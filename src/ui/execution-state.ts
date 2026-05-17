@@ -1,4 +1,4 @@
-import { NodeResult, NodeStatus } from "../types";
+import { GraphNode, NodeResult, NodeStatus, isWorkflowNode } from "../types";
 
 export interface NodeExecutionEntry {
 	readonly nodeId: string;
@@ -19,18 +19,19 @@ export interface ExecutionState {
 
 export function createExecutionState(
 	workflowName: string,
-	nodes: ReadonlyMap<string, { id: string; filePath: string }>,
+	nodes: ReadonlyMap<string, GraphNode>,
 ): ExecutionState {
 	const entries = new Map<string, NodeExecutionEntry>();
-	for (const [id, node] of nodes) {
-		entries.set(id, { nodeId: id, filePath: node.filePath, status: "pending" });
+	for (const node of nodes.values()) {
+		if (!isWorkflowNode(node)) continue;
+		entries.set(node.id, { nodeId: node.id, filePath: node.filePath, status: "pending" });
 	}
 
 	const executionOrder: string[] = [];
 
 	return {
 		workflowName,
-		totalNodes: nodes.size,
+		totalNodes: entries.size,
 		entries,
 		executionOrder,
 		completedCount: 0,

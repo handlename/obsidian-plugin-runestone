@@ -1,16 +1,20 @@
 import { describe, it, expect } from "vitest";
-import { executeWorkflow, WorkflowCallbacks } from "./executor";
-import { WorkflowGraph, WorkflowNode, WorkflowEdge } from "../types";
+import { executeWorkflow, MarkerLifecycleEvent, WorkflowCallbacks } from "./executor";
+import { GraphNode, MarkerNode, WorkflowGraph, WorkflowNode, WorkflowEdge } from "../types";
 
 function makeNode(id: string, type: "exec" | "script" | "condition" | "args", body = "", onError: "stop" | "continue" = "stop"): WorkflowNode {
 	return { id, filePath: `${id}.md`, config: { type, onError }, body };
+}
+
+function makeMarker(id: string, type: "start" | "end"): MarkerNode {
+	return { id, type };
 }
 
 function makeEdge(id: string, from: string, to: string, label?: string): WorkflowEdge {
 	return { id, fromNode: from, toNode: to, ...(label ? { label } : {}) };
 }
 
-function makeGraph(nodes: WorkflowNode[], edges: WorkflowEdge[], startNodeId: string): WorkflowGraph {
+function makeGraph(nodes: GraphNode[], edges: WorkflowEdge[], startNodeId: string): WorkflowGraph {
 	return {
 		nodes: new Map(nodes.map((n) => [n.id, n])),
 		edges,
@@ -794,6 +798,254 @@ describe("executeWorkflow", () => {
 			}), { maxCycleIterations: 1000 });
 
 			expect(capturedArgs).toEqual({ x: 1 });
+		});
+	});
+
+	describe("start/end marker nodes", () => {
+		// C1: start marker as entry, orphan ignored
+		it("starts execution from start marker and ignores orphans", async () => {
+			const graph = makeGraph(
+				[
+					makeMarker("s", "start"),
+					makeNode("a", "exec"),
+					makeNode("b", "exec"),
+					makeNode("orphan", "exec"),
+				],
+				[
+					makeEdge("e1", "s", "a"),
+					makeEdge("e2", "a", "b"),
+				],
+				"s",
+			);
+			const executed: string[] = [];
+			const results = await executeWorkflow(graph, mockCallbacks({
+				runNode: async (node) => {
+					executed.push(node.id);
+					return { nodeId: node.id, status: "success", output: { from: node.id }, durationMs: 1 };
+				},
+			}), { maxCycleIterations: 1000 });
+
+			expect(executed).toEqual(["a", "b"]);
+			expect(executed).not.toContain("orphan");
+			expect(results.find((r) => r.nodeId === "orphan")!.status).toBe("skipped");
+		});
+
+		// C2: start marker has no payload and is not in onNodeStatusChange stream for workflow nodes
+		it("does not call onNodeStatusChange for the start marker", async () => {
+			const graph = makeGraph(
+				[
+					makeMarker("s", "start"),
+					makeNode("a", "exec"),
+				],
+				[makeEdge("e1", "s", "a")],
+				"s",
+			);
+			const statusNodeIds: string[] = [];
+			await executeWorkflow(graph, mockCallbacks({
+				onNodeStatusChange: (nodeId) => {
+					statusNodeIds.push(nodeId);
+				},
+			}), { maxCycleIterations: 1000 });
+
+			expect(statusNodeIds).not.toContain("s");
+		});
+
+		// Successor of start receives [] as input
+		it("passes empty input to immediate successors of start", async () => {
+			const graph = makeGraph(
+				[makeMarker("s", "start"), makeNode("a", "exec")],
+				[makeEdge("e1", "s", "a")],
+				"s",
+			);
+			let captured: readonly unknown[] = [];
+			await executeWorkflow(graph, mockCallbacks({
+				runNode: async (node, input) => {
+					if (node.id === "a") captured = input;
+					return { nodeId: node.id, status: "success", output: {}, durationMs: 1 };
+				},
+			}), { maxCycleIterations: 1000 });
+
+			expect(captured).toEqual([]);
+		});
+
+		// C3, C5: end node halts workflow gracefully
+		it("halts workflow on end marker reach and completes successfully", async () => {
+			const graph = makeGraph(
+				[
+					makeMarker("s", "start"),
+					makeNode("a", "exec"),
+					makeMarker("end", "end"),
+					makeNode("downstream", "exec"),
+				],
+				[
+					makeEdge("e1", "s", "a"),
+					makeEdge("e2", "a", "end"),
+					makeEdge("e3", "end", "downstream"), // invalid in validator, but executor tolerates
+				],
+				"s",
+			);
+			const executed: string[] = [];
+			const results = await executeWorkflow(graph, mockCallbacks({
+				runNode: async (node) => {
+					executed.push(node.id);
+					return { nodeId: node.id, status: "success", output: { from: node.id }, durationMs: 1 };
+				},
+			}), { maxCycleIterations: 1000 });
+
+			expect(executed).toContain("a");
+			expect(executed).not.toContain("downstream");
+			expect(results.find((r) => r.nodeId === "a")!.status).toBe("success");
+			// No failed results overall
+			expect(results.find((r) => r.status === "failure")).toBeUndefined();
+		});
+
+		// C3: end halts other parallel branches (new scheduling stops)
+		it("stops scheduling new parallel branches after end reach", async () => {
+			// start -> a -> end
+			// start -> b -> c
+			// When end is reached, c should not be scheduled.
+			const graph = makeGraph(
+				[
+					makeMarker("s", "start"),
+					makeNode("a", "exec"),
+					makeNode("b", "exec"),
+					makeNode("c", "exec"),
+					makeMarker("end", "end"),
+				],
+				[
+					makeEdge("e1", "s", "a"),
+					makeEdge("e2", "s", "b"),
+					makeEdge("e3", "a", "end"),
+					makeEdge("e4", "b", "c"),
+				],
+				"s",
+			);
+			const executed: string[] = [];
+			await executeWorkflow(graph, mockCallbacks({
+				runNode: async (node) => {
+					executed.push(node.id);
+					// Make "a" resolve before "b" to ensure end is reached first
+					if (node.id === "b") await new Promise((r) => setTimeout(r, 10));
+					return { nodeId: node.id, status: "success", output: { from: node.id }, durationMs: 1 };
+				},
+			}), { maxCycleIterations: 1000 });
+
+			expect(executed).toContain("a");
+			// b may complete in-flight, but c (scheduled after b completes) is blocked by halt
+			expect(executed).not.toContain("c");
+		});
+
+		// C6: args nodes execute independently of start marker
+		it("executes args nodes alongside start marker", async () => {
+			const graph = makeGraph(
+				[
+					makeMarker("s", "start"),
+					makeNode("myargs", "args"),
+					makeNode("target", "script"),
+				],
+				[
+					makeEdge("e1", "s", "target"),
+					makeEdge("e2", "myargs", "target"),
+				],
+				"s",
+			);
+			const executed: string[] = [];
+			let capturedArgs: Record<string, unknown> = {};
+			await executeWorkflow(graph, mockCallbacks({
+				runNode: async (node, input, args) => {
+					executed.push(node.id);
+					if (node.id === "myargs") {
+						return { nodeId: node.id, status: "success", output: { x: 1 }, durationMs: 1 };
+					}
+					if (node.id === "target") capturedArgs = args;
+					return { nodeId: node.id, status: "success", output: { from: node.id }, durationMs: 1 };
+				},
+			}), { maxCycleIterations: 1000 });
+
+			expect(executed).toContain("myargs");
+			expect(executed).toContain("target");
+			expect(capturedArgs).toEqual({ x: 1 });
+		});
+
+		// C7: start marker with multiple outgoing edges => parallel execution
+		it("schedules multiple successors of start in parallel", async () => {
+			const graph = makeGraph(
+				[
+					makeMarker("s", "start"),
+					makeNode("a", "exec"),
+					makeNode("b", "exec"),
+				],
+				[
+					makeEdge("e1", "s", "a"),
+					makeEdge("e2", "s", "b"),
+				],
+				"s",
+			);
+			const executed: string[] = [];
+			await executeWorkflow(graph, mockCallbacks({
+				runNode: async (node) => {
+					executed.push(node.id);
+					return { nodeId: node.id, status: "success", output: { from: node.id }, durationMs: 1 };
+				},
+			}), { maxCycleIterations: 1000 });
+
+			expect(executed).toContain("a");
+			expect(executed).toContain("b");
+		});
+
+		// Marker lifecycle events
+		it("emits start-begin, start-end, and end-reached marker events", async () => {
+			const graph = makeGraph(
+				[
+					makeMarker("s", "start"),
+					makeNode("a", "exec"),
+					makeMarker("end", "end"),
+				],
+				[
+					makeEdge("e1", "s", "a"),
+					makeEdge("e2", "a", "end"),
+				],
+				"s",
+			);
+			const events: { id: string; event: MarkerLifecycleEvent }[] = [];
+			await executeWorkflow(graph, mockCallbacks({
+				onMarkerStateChange: (id, event) => events.push({ id, event }),
+			}), { maxCycleIterations: 1000 });
+
+			expect(events).toContainEqual({ id: "s", event: "start-begin" });
+			expect(events).toContainEqual({ id: "s", event: "start-end" });
+			expect(events).toContainEqual({ id: "end", event: "end-reached" });
+		});
+
+		it("emits end-unreached for end markers not reached", async () => {
+			const graph = makeGraph(
+				[
+					makeMarker("s", "start"),
+					makeNode("cond", "condition", "```js\nreturn 'a';\n```"),
+					makeMarker("end_a", "end"),
+					makeMarker("end_b", "end"),
+				],
+				[
+					makeEdge("e1", "s", "cond"),
+					makeEdge("e2", "cond", "end_a", "a"),
+					makeEdge("e3", "cond", "end_b", "b"),
+				],
+				"s",
+			);
+			const events: { id: string; event: MarkerLifecycleEvent }[] = [];
+			await executeWorkflow(graph, mockCallbacks({
+				runConditionNode: async (node, input, outEdges) => ({
+					nodeId: node.id,
+					status: "success",
+					output: input,
+					selectedEdgeId: outEdges.find((e) => e.label === "a")?.id,
+					durationMs: 1,
+				}),
+				onMarkerStateChange: (id, event) => events.push({ id, event }),
+			}), { maxCycleIterations: 1000 });
+
+			expect(events).toContainEqual({ id: "end_a", event: "end-reached" });
+			expect(events).toContainEqual({ id: "end_b", event: "end-unreached" });
 		});
 	});
 
