@@ -82,6 +82,19 @@ export class CanvasVisualizer {
 		}
 	}
 
+	updateMarkerNode(nodeId: string, color: string): void {
+		if (!this.canvasNodes) return;
+
+		const canvasNode = this.canvasNodes.get(nodeId);
+		if (!canvasNode) return;
+
+		try {
+			canvasNode.setColor(color);
+		} catch (e) {
+			console.error("[Runestone] Canvas marker visualization error:", e);
+		}
+	}
+
 	cleanup(): void {
 		if (this.timerInterval) {
 			clearInterval(this.timerInterval);
