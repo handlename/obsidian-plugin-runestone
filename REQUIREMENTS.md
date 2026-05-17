@@ -42,6 +42,27 @@ Runestone is an Obsidian plugin. It allows users to build and execute workflows 
 - args nodes must not have incoming edges
 - args nodes must not connect to other args nodes
 
+### REQ-NODE-005: start Node
+
+- Represented as a Canvas text node (Canvas `type: "text"`)
+- The text content, after trimming whitespace, must equal the literal `runestone:start`
+- The start node carries no payload (no Frontmatter, no code block) and produces no output
+- It is not displayed in the Log Panel
+- Its immediate successors receive an empty input
+- A workflow must contain exactly one start node (see REQ-GRAPH-002)
+
+### REQ-NODE-006: end Node
+
+- Represented as a Canvas text node (Canvas `type: "text"`)
+- The text content, after trimming whitespace, must equal the literal `runestone:end`
+- The end node carries no payload and produces no output
+- It is not displayed in the Log Panel
+- Reaching any end node halts the entire workflow gracefully:
+  - No new nodes are scheduled
+  - Already in-flight nodes (exec, script, condition, args) are allowed to complete naturally
+  - The workflow terminates with status `completed` (not `failed`) once all in-flight nodes settle
+- A workflow may contain zero or more end nodes (see REQ-GRAPH-007)
+
 ## Data Flow
 
 ### REQ-DATA-001: JSON-Based Data Flow
@@ -66,12 +87,17 @@ Runestone is an Obsidian plugin. It allows users to build and execute workflows 
 ### REQ-GRAPH-001: Canvas JSON Parsing
 
 - Parse `.canvas` file `nodes` and `edges` to build the graph
-- Only nodes referencing notes (`type: "file"`) are treated as workflow nodes
+- Canvas nodes of `type: "file"` are treated as workflow nodes (exec, script, condition, args)
+- Canvas nodes of `type: "text"` are treated as workflow nodes only when their trimmed content equals the literal `runestone:start` or `runestone:end`
+- All other Canvas nodes are excluded from the workflow graph
 
 ### REQ-GRAPH-002: Start Node
 
-- A node with no incoming edges is the start node
-- There must be exactly one start node. Multiple start nodes result in an error
+- The unique Canvas text node whose trimmed content equals `runestone:start` is the start node
+- A workflow must contain exactly one start node
+- Zero start nodes result in a validation error
+- Two or more start nodes result in a validation error
+- The start node must have no incoming edges and at least one outgoing edge
 
 ### REQ-GRAPH-003: Parallel Execution
 
@@ -93,19 +119,31 @@ Runestone is an Obsidian plugin. It allows users to build and execute workflows 
 - Cycles are permitted
 - However, a cycle must have an exit edge (via a condition node)
 
+### REQ-GRAPH-007: End Node
+
+- A Canvas text node whose trimmed content equals `runestone:end` is an end node
+- A workflow may contain zero or more end nodes
+- Each end node must have one or more incoming edges and no outgoing edges
+- An isolated end node (no incoming edges) results in a validation error
+- Reaching any end node halts the workflow gracefully (see REQ-NODE-006)
+- Nodes that are unreachable from the start node (orphans) are silently ignored — they are not executed and do not cause a validation error
+
 ## Validation
 
 ### REQ-VALID-001: Pre-Execution Checks
 
 The following are validated before workflow execution:
 
-1. Exactly one start node exists
-2. If a cycle exists, there is an exit edge via a condition node
-3. Required properties are defined in each node's Frontmatter
-4. Template syntax references are valid (e.g. `input` is not referenced in a node with no inputs)
-5. Condition nodes have at least one labeled output edge and at most one unlabeled (default) output edge
-6. Condition nodes contain a JavaScript code block in the note body
-7. Disabled (nondirectional) edges are excluded before validation (filtered during graph construction)
+1. Exactly one start node (`runestone:start` text node) exists
+2. The start node has no incoming edges
+3. The start node has at least one outgoing edge
+4. Every end node (`runestone:end` text node) has one or more incoming edges and no outgoing edges
+5. If a cycle exists, there is an exit edge via a condition node
+6. Required properties are defined in each node's Frontmatter
+7. Template syntax references are valid (e.g. `input` is not referenced in a node with no inputs)
+8. Condition nodes have at least one labeled output edge and at most one unlabeled (default) output edge
+9. Condition nodes contain a JavaScript code block in the note body
+10. Disabled (nondirectional) edges are excluded before validation (filtered during graph construction)
 
 ## Execution Triggers
 
@@ -167,6 +205,11 @@ The following are validated before workflow execution:
   - Success: Color change (e.g. green)
   - Failure: Color change (e.g. red)
   - Skipped (not executed due to upstream error): Gray
+- Start and end marker text nodes are colored directly by the visualizer (they are not tracked through the Pending/Running/Success/Failure/Skipped lifecycle):
+  - `runestone:start`: Running color while the workflow is active, Success color when the workflow finishes
+  - `runestone:end` (reached, triggered the halt): Success color
+  - `runestone:end` (not reached): Skipped color
+- Canvas text nodes that are not start/end markers are not touched by the visualizer
 
 ### REQ-UI-002: Log Panel
 
@@ -176,6 +219,7 @@ The following are validated before workflow execution:
 - Clicking a node name opens the corresponding note
 - Display overall workflow progress (completed nodes / total nodes)
 - Display stack traces and error messages on error
+- Start and end marker text nodes are excluded from the log panel (they have no payload, no execution time, and no output)
 
 ### REQ-UI-003: Obsidian Log Console Output
 
