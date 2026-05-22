@@ -1,6 +1,6 @@
 {
   "name": "runestone-workflow",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Claude Code skill for creating and modifying Runestone workflows on Obsidian Canvas",
   "author": {
     "name": "handlename"

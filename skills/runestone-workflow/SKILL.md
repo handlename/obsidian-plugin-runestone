@@ -16,7 +16,7 @@ argument-hint: "[description of the workflow to create or modify]"
 compatibility: Requires file system access to an Obsidian vault directory.
 metadata:
   author: handlename
-  version: "0.2.0"
+  version: "0.3.0"
 ---
 
 ## Overview
