@@ -2,29 +2,29 @@
 
 This document describes the steps needed to migrate existing Runestone workflows when upgrading between versions.
 
-## v0.4 (argsノードの廃止)
+## v0.4 (Deprecation of the args Node)
 
-### 概要
+### Overview
 
-`start` ノードの導入により、ワークフローの起点が明確になったため、`args` ノードタイプを完全に廃止しました。
+With the introduction of the explicit `start` node, the entry points of workflows are now clearly defined. As a result, the `args` node type has been completely deprecated and removed.
 
-### 破壊的変更
+### Breaking Changes
 
-1. **`args` ノードの廃止**: `runestone.type: args` を指定したノートは、ワークフローエンジンから認識されなくなりました。バリデーション時にエラーとなるか、無視されます。
-2. **互換性の維持**: 歴史的に `args` 変数や `{{args.key}}` テンプレートを使用しているスクリプトやコマンドの破壊を防ぐため、実行時の `args` パラメータおよびテンプレートの解決結果は、空のオブジェクト `{}` として維持されます。これにより、`ReferenceError` などのランタイムエラーの発生を防止します。
+1. **Removal of the `args` Node**: Notes specifying `runestone.type: args` are no longer recognized by the workflow engine and will trigger a pre-execution validation error.
+2. **Backward Compatibility**: To prevent existing scripts and command templates referencing `args` variables or `{{args.key}}` template values from throwing immediate runtime errors (such as `ReferenceError`), the executor will still inject an empty object `{}` for the `args` parameter during execution.
 
-### 移行ステップ
+### Migration Steps
 
-既存の `args` ノードを Canvas から削除してください。これまで `args` ノードから提供していた設定パラメータや静的データは、以下の方法で代替できます。
+Please remove any existing `args` nodes from your Canvas. Configuration parameters or static data previously supplied by `args` nodes can be refactored using the following approaches:
 
-- **script ノード内での直接定義**:
+- **Inline definition in script nodes**:
   ```js
-  // 移行前: const items = args.items;
-  // 移行後: 直接スクリプト内に定義
+  // Before: const items = args.items;
+  // After: Define variables directly inside your script
   const items = ["Option A", "Option B", "Option C"];
   ```
-- **script ノードに定数定義用ノードとしての役割を持たせる**:
-  パラメータを定義して出力する `script` ノードを `start` ノードの直後に配置し、後続のノードで `{{input[n]}}` を介して参照します。
+- **Using a dedicated configuration script node**:
+  Place a `script` node immediately after the `start` node to output your parameters, and reference them in downstream nodes using the `{{input[n]}}` syntax.
 
 ---
 
