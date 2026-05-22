@@ -31,13 +31,14 @@ if (fmMatch) {
 const templateBody = fmMatch ? fmMatch[2] : templateContent;
 
 // Step 2: Build merged frontmatter.
-// Merge order (later wins): template defaults → args common → computed values.
+// Merge order (later wins): template defaults → input config common → computed values.
 // - Template frontmatter: type-specific keys defined in the template file
-// - args.commonFrontmatter: shared keys injected via note-config args node
+// - input config commonFrontmatter: shared keys injected via note-config script node
 // - Computed values: title, para, created_at set by this script
+const noteConfig = input.find(x => x.commonFrontmatter) || {};
 const merged = {
   ...templateFrontmatter,
-  ...(args.commonFrontmatter || {}),
+  ...(noteConfig.commonFrontmatter || {}),
   title: `"${title}"`,
   para: `"${paraType}"`,
   created_at: `"${new Date().toISOString()}"`,

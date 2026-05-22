@@ -71,7 +71,7 @@ echo '{"message": "hello {{args.name}}"}'
 
 ### script
 
-Executes JavaScript asynchronously. Available variables: `app` (Obsidian App instance), `obsidian` (the `obsidian` module, e.g. `Modal`, `Notice`, `SuggestModal`), `input` (array of outputs from upstream nodes), and `args` (object from connected args nodes, empty `{}` if none). The return value becomes the node output.
+Executes JavaScript asynchronously. Available variables: `app` (Obsidian App instance), `obsidian` (the `obsidian` module, e.g. `Modal`, `Notice`, `SuggestModal`), `input` (array of outputs from upstream nodes), and `args` (empty `{}` for backward compatibility). The return value becomes the node output.
 
 ````markdown
 ---
@@ -86,7 +86,7 @@ return { result };
 
 ### condition
 
-Evaluates JavaScript and returns a value that is stringified and matched against outgoing edge labels. Must have at least one labeled outgoing edge. An optional unlabeled edge serves as a default (like `default` in a switch statement) when no label matches. Available variables: `app`, `obsidian`, `input` (same as script), and `args` (object from connected args nodes, empty `{}` if none). The original `input` is passed through to the next node, not the condition's return value. Multiple labeled edges may point to the same target node.
+Evaluates JavaScript and returns a value that is stringified and matched against outgoing edge labels. Must have at least one labeled outgoing edge. An optional unlabeled edge serves as a default (like `default` in a switch statement) when no label matches. Available variables: `app`, `obsidian`, `input` (same as script), and `args` (empty `{}` for backward compatibility). The original `input` is passed through to the next node, not the condition's return value. Multiple labeled edges may point to the same target node.
 
 ````markdown
 ---
@@ -99,41 +99,6 @@ return input[0].count > 10 ? "high" : "low";
 ````
 
 Workflows may contain cycles. Every cycle must include a condition node with at least one exit edge leading outside the cycle.
-
-### args
-
-Provides reusable parameters to downstream nodes. The code block executes JavaScript and must return a plain object. The result is passed as a separate `args` parameter (not via `input`). This enables reusing the same node with different configurations.
-
-````markdown
----
-runestone.type: args
----
-
-```js
-return {
-  items: ["Option A", "Option B", "Option C"],
-  placeholder: "Select an option",
-};
-```
-````
-
-The connected script/condition node receives `args` in addition to `app`, `obsidian`, and `input`:
-
-```js
-const items = args.items;
-// use items...
-```
-
-In exec nodes, args are available via `{{args.key}}` template syntax:
-
-```bash
-echo '{"items": "{{args.items}}"}'
-```
-
-**Constraints:**
-- args nodes must not have incoming edges
-- args nodes cannot connect to other args nodes
-- Multiple args nodes to the same target are merged (key conflicts: last wins with console warning)
 
 ### start
 
@@ -161,7 +126,7 @@ All properties use the `runestone.` prefix. Properties without this prefix are i
 
 | Property | Values | Default | Description |
 |---|---|---|---|
-| `runestone.type` | `exec`, `script`, `condition`, `args` | (required) | Node type |
+| `runestone.type` | `exec`, `script`, `condition` | (required) | Node type |
 | `runestone.onError` | `stop`, `continue` | `stop` | Error handling strategy |
 
 - `stop`: abort the entire workflow and skip all remaining nodes
@@ -187,7 +152,7 @@ Nodes can reference outputs from upstream nodes using `{{input[n].property}}`.
 - Multiple templates in one string: `echo '{"a": "{{input[0].x}}", "b": "{{input[1].y}}"}'`
 - Strings are passed as-is; numbers and booleans are converted to strings; objects and arrays are converted to JSON
 
-The immediate successors of the `runestone:start` marker receive an empty input (`[{}]`), so `{{input[0].key}}` references are not meaningful there. Use `args` nodes to supply parameters to start-adjacent nodes.
+The immediate successors of the `runestone:start` marker receive an empty input (`[{}]`), so `{{input[0].key}}` references are not meaningful there.
 
 ## Settings
 
@@ -231,7 +196,6 @@ A workflow that creates a new note following the [PARA method](https://fortelabs
 
 - **Interactive dialogs** — prompt and suggest nodes for user input
 - **Conditional branching** — routes to different folders (Projects, Areas, Resources, Archives) based on PARA type
-- **Args nodes** — reusable configuration passed to multiple nodes
 - **Join execution** — all branches converge to a final activation node
 
 To run: open `workflows/para-note/para-note.canvas` and click the play button.

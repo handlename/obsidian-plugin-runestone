@@ -7,7 +7,6 @@ import { executeWorkflow, MarkerLifecycleEvent } from "../engine/executor";
 import { runExecNode, ExecContext } from "../engine/node-runners/exec-runner";
 import { runScriptNode } from "../engine/node-runners/script-runner";
 import { runConditionNode } from "../engine/node-runners/condition-runner";
-import { runArgsNode } from "../engine/node-runners/args-runner";
 import { NodeStatus, NodeResult, WorkflowNode, WorkflowEdge, ConditionResult, isWorkflowNode } from "../types";
 import { createExecutionState, updateExecutionState } from "../ui/execution-state";
 import { CanvasVisualizer } from "../ui/canvas-visualizer";
@@ -85,9 +84,6 @@ async function executeCanvasWorkflow(
 				console.debug(`${LOG_PREFIX} Running node: ${node.filePath} (${node.config.type})`);
 				if (node.config.type === "exec") {
 					return runExecNode(node, input, execContext, args);
-				}
-				if (node.config.type === "args") {
-					return runArgsNode(node, app, obsidian);
 				}
 				return runScriptNode(node, input, app, obsidian, args);
 			},

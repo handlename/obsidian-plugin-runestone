@@ -2,6 +2,32 @@
 
 This document describes the steps needed to migrate existing Runestone workflows when upgrading between versions.
 
+## v0.4 (argsノードの廃止)
+
+### 概要
+
+`start` ノードの導入により、ワークフローの起点が明確になったため、`args` ノードタイプを完全に廃止しました。
+
+### 破壊的変更
+
+1. **`args` ノードの廃止**: `runestone.type: args` を指定したノートは、ワークフローエンジンから認識されなくなりました。バリデーション時にエラーとなるか、無視されます。
+2. **互換性の維持**: 歴史的に `args` 変数や `{{args.key}}` テンプレートを使用しているスクリプトやコマンドの破壊を防ぐため、実行時の `args` パラメータおよびテンプレートの解決結果は、空のオブジェクト `{}` として維持されます。これにより、`ReferenceError` などのランタイムエラーの発生を防止します。
+
+### 移行ステップ
+
+既存の `args` ノードを Canvas から削除してください。これまで `args` ノードから提供していた設定パラメータや静的データは、以下の方法で代替できます。
+
+- **script ノード内での直接定義**:
+  ```js
+  // 移行前: const items = args.items;
+  // 移行後: 直接スクリプト内に定義
+  const items = ["Option A", "Option B", "Option C"];
+  ```
+- **script ノードに定数定義用ノードとしての役割を持たせる**:
+  パラメータを定義して出力する `script` ノードを `start` ノードの直後に配置し、後続のノードで `{{input[n]}}` を介して参照します。
+
+---
+
 ## v0.3
 
 ### Overview

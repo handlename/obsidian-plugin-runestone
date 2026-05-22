@@ -257,13 +257,13 @@ return `[${timestamp}] Health check completed with status: ${result.status}`;
 
 ---
 
-## Example 3: With Args
+## Example 3: With Upstream Config
 
-A workflow where an args node supplies configuration (target directory and file extension) to a script node that counts matching files. An exec node starts the workflow and produces the initial file list.
+A workflow where an upstream config node (script node) supplies configuration (target directory and file extension) to a script node that counts matching files. An exec node starts the workflow and produces the initial file list. Both nodes converge at the filter node.
 
 ### Node Files
 
-#### `workflows/with-args/list-files.md`
+#### `workflows/with-config/list-files.md`
 
 ```md
 ---
@@ -278,11 +278,12 @@ echo "{\"files\": $FILES}"
 ```
 ```
 
-#### `workflows/with-args/search-config.md`
+#### `workflows/with-config/search-config.md`
 
 ```md
 ---
-runestone.type: args
+runestone.type: script
+runestone.onError: stop
 ---
 
 ```javascript
@@ -294,7 +295,7 @@ return {
 ```
 ```
 
-#### `workflows/with-args/filter-files.md`
+#### `workflows/with-config/filter-files.md`
 
 ```md
 ---
@@ -303,10 +304,13 @@ runestone.onError: stop
 ---
 
 ```javascript
-// input[0] is the JSON output from the exec node (file listing)
-// args contains the configuration from the args node
-const { files } = input[0];
-const { extension, maxResults } = args;
+// input is an array containing outputs from both upstream nodes
+const fileInput = input.find(x => x.files);
+const configInput = input.find(x => x.extension);
+
+const files = fileInput ? fileInput.files : [];
+const extension = configInput ? configInput.extension : ".md";
+const maxResults = configInput ? configInput.maxResults : 10;
 
 const filtered = files
   .filter(f => f.endsWith(extension))
@@ -328,7 +332,7 @@ return {
     {
       "id": "a9b0c1d2e3f4a5b6",
       "type": "file",
-      "file": "workflows/with-args/list-files.md",
+      "file": "workflows/with-config/list-files.md",
       "x": 0,
       "y": 0,
       "width": 250,
@@ -337,7 +341,7 @@ return {
     {
       "id": "b0c1d2e3f4a5b6c7",
       "type": "file",
-      "file": "workflows/with-args/search-config.md",
+      "file": "workflows/with-config/search-config.md",
       "x": 0,
       "y": 120,
       "width": 250,
@@ -346,7 +350,7 @@ return {
     {
       "id": "c1d2e3f4a5b6c7d8",
       "type": "file",
-      "file": "workflows/with-args/filter-files.md",
+      "file": "workflows/with-config/filter-files.md",
       "x": 300,
       "y": 0,
       "width": 250,

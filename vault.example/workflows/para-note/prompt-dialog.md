@@ -3,27 +3,27 @@ runestone.type: script
 ---
 
 ```javascript
-// args.title: dialog title text
-// args.placeholder: input placeholder text
+// config: { title, placeholder } passed from upstream config script node
+const config = input.find(x => x.title) || {};
 return new Promise((resolve) => {
   const modal = new obsidian.Modal(app);
-  modal.titleEl.setText(args.title);
+  modal.titleEl.setText(config.title || "Enter value");
 
-  const input = modal.contentEl.createEl("input", {
+  const inputEl = modal.contentEl.createEl("input", {
     type: "text",
-    placeholder: args.placeholder || "",
+    placeholder: config.placeholder || "",
   });
-  input.style.width = "100%";
+  inputEl.style.width = "100%";
 
-  input.addEventListener("keydown", (e) => {
+  inputEl.addEventListener("keydown", (e) => {
     if (e.key === "Enter") {
       modal.close();
-      resolve({ value: input.value });
+      resolve({ value: inputEl.value });
     }
   });
 
-  modal.onClose = () => resolve({ value: input.value });
+  modal.onClose = () => resolve({ value: inputEl.value });
   modal.open();
-  input.focus();
+  inputEl.focus();
 });
 ```

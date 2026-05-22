@@ -141,36 +141,7 @@ export async function executeWorkflow(
 				return;
 			}
 
-			if (node.config.type === "args") {
-				const edges = outgoingEdges.get(nodeId) ?? [];
-				for (const edge of edges) {
-					dismissedEdges.add(edge.id);
-				}
-				for (const edge of edges) {
-					const targetId = edge.toNode;
-					const targetIncoming = incomingEdges.get(targetId) ?? [];
-					const allSatisfied = targetIncoming.every((e) => completedEdges.has(e.id) || dismissedEdges.has(e.id));
-					if (allSatisfied) {
-						const anyArgsEdgeDismissed = targetIncoming.some((e) => {
-							const sourceNode = graph.nodes.get(e.fromNode);
-							if (!sourceNode || !isWorkflowNode(sourceNode)) return false;
-							if (sourceNode.config.type !== "args") return false;
-							return dismissedEdges.has(e.id);
-						});
-						if (anyArgsEdgeDismissed) {
-							const skipResult: NodeResult = {
-								nodeId: targetId,
-								status: "skipped",
-								durationMs: 0,
-							};
-							results.set(targetId, skipResult);
-							callbacks.onNodeStatusChange(targetId, "skipped", skipResult);
-							skipDownstream(targetId, graph, outgoingEdges, results, callbacks);
-						}
-					}
-				}
-				return;
-			}
+
 
 			skipDownstream(nodeId, graph, outgoingEdges, results, callbacks);
 			return;
@@ -205,18 +176,7 @@ export async function executeWorkflow(
 			callbacks.onEdgeCompleted?.(edge.id);
 			const targetId = edge.toNode;
 			const targetIncoming = incomingEdges.get(targetId) ?? [];
-
-			if (node.config.type === "args") {
-				const currentArgs = nodeArgs.get(targetId) ?? {};
-				const argsOutput = result.output as Record<string, unknown> ?? {};
-				const existingKeys = Object.keys(currentArgs);
-				for (const key of Object.keys(argsOutput)) {
-					if (existingKeys.includes(key)) {
-						console.warn(`[Runestone] Args key "${key}" overwritten for node "${targetId}"`);
-					}
-				}
-				nodeArgs.set(targetId, { ...currentArgs, ...argsOutput });
-			} else if (node.config.type === "condition" && Array.isArray(result.output)) {
+			if (node.config.type === "condition" && Array.isArray(result.output)) {
 				const inputs = nodeInputs.get(targetId) ?? [];
 				inputs.push(...(result.output as unknown[]));
 				nodeInputs.set(targetId, inputs);
@@ -239,14 +199,7 @@ export async function executeWorkflow(
 						return upstreamResult && (upstreamResult.status === "failure" || upstreamResult.status === "skipped");
 					});
 
-					const anyArgsEdgeDismissed = targetIncoming.some((e) => {
-						const sourceNode = graph.nodes.get(e.fromNode);
-						if (!sourceNode || !isWorkflowNode(sourceNode)) return false;
-						if (sourceNode.config.type !== "args") return false;
-						return dismissedEdges.has(e.id);
-					});
-
-					if (anyFailed || anyArgsEdgeDismissed) {
+					if (anyFailed) {
 						const skipResult: NodeResult = {
 							nodeId: targetId,
 							status: "skipped",
@@ -271,13 +224,7 @@ export async function executeWorkflow(
 	const isStartMarker = !!startMarker && isMarkerNode(startMarker) && startMarker.type === "start";
 	const usingMarkerAsEntry = isStartMarker && effectiveStartNodeId === graph.startNodeId;
 
-	const argsNodeIds: string[] = [];
-	for (const node of graph.nodes.values()) {
-		if (!isWorkflowNode(node)) continue;
-		if (node.config.type === "args") {
-			argsNodeIds.push(node.id);
-		}
-	}
+
 
 	const startPromises: Promise<void>[] = [];
 	if (usingMarkerAsEntry) {
@@ -286,9 +233,7 @@ export async function executeWorkflow(
 	} else {
 		startPromises.push(executeNode(effectiveStartNodeId, []));
 	}
-	for (const argsId of argsNodeIds) {
-		startPromises.push(executeNode(argsId, []));
-	}
+
 	await Promise.all(startPromises);
 
 	if (usingMarkerAsEntry) {
@@ -358,8 +303,6 @@ function propagateConditionDismissals(
 
 		const targetIncoming = incomingEdges.get(targetId) ?? [];
 		const allExecutionEdgesDismissed = targetIncoming.every((e) => {
-			const sourceNode = graph.nodes.get(e.fromNode);
-			if (sourceNode && isWorkflowNode(sourceNode) && sourceNode.config.type === "args") return true;
 			return dismissedEdges.has(e.id);
 		});
 		if (!allExecutionEdgesDismissed) continue;

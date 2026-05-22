@@ -6,7 +6,7 @@ This glossary defines domain-specific terms used in the Runestone Obsidian plugi
 
 ### Workflow Node
 
-A note referenced from a Canvas that acts as a step in a workflow. Must have `runestone.type` defined in Frontmatter. Canvas nodes of `type: "file"` (for exec/script/condition/args nodes) and `type: "text"` containing the literals `runestone:start` or `runestone:end` (for Start Node / End Node markers) are treated as workflow nodes.
+A note referenced from a Canvas that acts as a step in a workflow. Must have `runestone.type` defined in Frontmatter. Canvas nodes of `type: "file"` (for exec/script/condition nodes) and `type: "text"` containing the literals `runestone:start` or `runestone:end` (for Start Node / End Node markers) are treated as workflow nodes.
 
 ### exec Node
 
@@ -35,16 +35,6 @@ Evaluates JavaScript from a code block and routes execution based on the return 
 ```yaml
 ---
 runestone.type: condition
----
-```
-
-### args Node
-
-Executes JavaScript from a code block and provides the result as a separate `args` parameter to connected downstream script/condition nodes. Unlike other node types, the output is not passed via `input`. args nodes must not have incoming edges and cannot connect to other args nodes or exec nodes. When multiple args nodes connect to the same target, their outputs are merged into a single `args` object (key conflicts: last wins with a console warning).
-
-```yaml
----
-runestone.type: args
 ---
 ```
 
@@ -196,7 +186,7 @@ runestone.onError: continue
 
 ### Log Panel
 
-A dedicated Runestone view displaying each node's execution state, output (the structured return value), stdout, stderr, execution time, overall workflow progress, and stack traces/error messages on error. The `output` value is rendered as pretty-printed JSON and is shown for every node type (exec, script, condition, args), in addition to the raw stdout for exec nodes. Clicking a node name opens the corresponding note.
+A dedicated Runestone view displaying each node's execution state, output (the structured return value), stdout, stderr, execution time, overall workflow progress, and stack traces/error messages on error. The `output` value is rendered as pretty-printed JSON and is shown for every node type (exec, script, condition), in addition to the raw stdout for exec nodes. Clicking a node name opens the corresponding note.
 
 ## Obsidian Concepts
 

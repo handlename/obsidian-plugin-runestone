@@ -31,7 +31,7 @@ export interface CanvasEdge {
 
 // Internal types
 
-export type RunestoneNodeType = "exec" | "script" | "condition" | "args" | "start" | "end";
+export type RunestoneNodeType = "exec" | "script" | "condition" | "start" | "end";
 
 export type MarkerNodeType = "start" | "end";
 

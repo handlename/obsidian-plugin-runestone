@@ -1,7 +1,7 @@
 import { GraphNode, ParsedGraph, WorkflowGraph, isMarkerNode, isWorkflowNode } from "../types";
 import { extractCodeBlock } from "./parser";
 
-const TEMPLATE_RE = /\{\{(?:input|args)/;
+const TEMPLATE_RE = /\{\{input/;
 
 export type ValidationResult =
 	| { readonly ok: true; readonly graph: WorkflowGraph }
@@ -129,36 +129,7 @@ export function validate(graph: ParsedGraph): ValidationResult {
 			}
 		}
 
-		if (node.config.type === "args") {
-			const incoming = incomingCount.get(node.id) ?? 0;
-			if (incoming > 0) {
-				errors.push(
-					`Args node "${node.id}" (${node.filePath}) must not have incoming edges`,
-				);
-			}
 
-			const outEdges = outgoingEdges.get(node.id) ?? [];
-			if (outEdges.length === 0) {
-				errors.push(
-					`Args node "${node.id}" (${node.filePath}) must have at least one outgoing edge`,
-				);
-			}
-
-			for (const edge of outEdges) {
-				const targetNode = graph.nodes.get(edge.toNode);
-				if (targetNode && isWorkflowNode(targetNode) && targetNode.config.type === "args") {
-					errors.push(
-						`Args node "${node.id}" (${node.filePath}) must not connect to another args node "${edge.toNode}"`,
-					);
-				}
-			}
-
-			if (!extractCodeBlock(node.body)) {
-				errors.push(
-					`Args node "${node.id}" (${node.filePath}) must have a code block in the note body`,
-				);
-			}
-		}
 	}
 
 	// Cycle exit

@@ -1,5 +1,5 @@
 ---
-runestone.type: args
+runestone.type: script
 ---
 
 ```js

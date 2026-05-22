@@ -1,6 +1,6 @@
 import { CanvasData, MarkerNodeType, RunestoneConfig, RunestoneNodeType } from "../types";
 
-const VALID_NODE_TYPES: readonly string[] = ["exec", "script", "condition", "args"];
+const VALID_NODE_TYPES: readonly string[] = ["exec", "script", "condition"];
 const CODE_BLOCK_RE = /```[^\n]*\n([\s\S]*?)```/;
 
 const START_MARKER = "runestone:start";

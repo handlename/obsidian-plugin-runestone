@@ -15,7 +15,6 @@ src/
       exec-runner.ts   # Shell command execution, stdout JSON parsing
       script-runner.ts # JavaScript execution via AsyncFunction
       condition-runner.ts  # Conditional branching by return value
-      args-runner.ts   # Argument provider for downstream nodes
   graph/
     builder.ts         # Canvas JSON + note frontmatter -> WorkflowGraph
     parser.ts          # Canvas JSON parsing, frontmatter extraction, code block extraction
@@ -37,14 +36,13 @@ src/
 
 ## Domain concepts
 
-Six node types. Four are file-backed notes configured via `runestone.*` frontmatter; two are Canvas text nodes used as payloadless markers:
+Five node types. Three are file-backed notes configured via `runestone.*` frontmatter; two are Canvas text nodes used as payloadless markers:
 
 | Type | Canvas form | Purpose | Input | Output |
 |------|-------------|---------|-------|--------|
 | `exec` | file note | Run shell command | `{{input[n]}}` and `{{args.key}}` templates in body/frontmatter | stdout parsed as JSON |
 | `script` | file note | Run JavaScript | `input`, `args`, `app`, `obsidian` variables | Return value as JSON |
 | `condition` | file note | Branch execution | Same as script | Return value matched to edge labels |
-| `args` | file note | Provide parameters | None (no incoming edges) | Merged into downstream `args` parameter |
 | `start` | text node `runestone:start` | Mark workflow entry point | None | Empty input to successors |
 | `end` | text node `runestone:end` | Mark workflow halt point | Any | None (triggers graceful halt) |
 
@@ -57,7 +55,6 @@ Key execution rules:
 - Cycles allowed but require condition node with exit edge.
 - Nondirectional edges (`fromEnd: "none"`, `toEnd: "none"`) are excluded.
 - `runestone.onError: stop` (default) halts workflow; `continue` skips only the failed path.
-- `args` nodes still run independently of the start node (they have no incoming edges and provide args in parallel).
 
 ## Testing
 
