@@ -2,55 +2,46 @@
 
 This document describes the steps needed to migrate existing Runestone workflows when upgrading between versions.
 
-## v0.4 (Deprecation of the args Node)
-
-### Overview
-
-With the introduction of the explicit `start` node, the entry points of workflows are now clearly defined. As a result, the `args` node type has been completely deprecated and removed.
-
-### Breaking Changes
-
-1. **Removal of the `args` Node**: Notes specifying `runestone.type: args` are no longer recognized by the workflow engine and will trigger a pre-execution validation error.
-2. **Backward Compatibility**: To prevent existing scripts and command templates referencing `args` variables or `{{args.key}}` template values from throwing immediate runtime errors (such as `ReferenceError`), the executor will still inject an empty object `{}` for the `args` parameter during execution.
-
-### Migration Steps
-
-Please remove any existing `args` nodes from your Canvas. Configuration parameters or static data previously supplied by `args` nodes can be refactored using the following approaches:
-
-- **Inline definition in script nodes**:
-  ```js
-  // Before: const items = args.items;
-  // After: Define variables directly inside your script
-  const items = ["Option A", "Option B", "Option C"];
-  ```
-- **Using a dedicated configuration script node**:
-  Place a `script` node immediately after the `start` node to output your parameters, and reference them in downstream nodes using the `{{input[n]}}` syntax.
-
----
-
 ## v0.3
 
 ### Overview
 
-v0.3 introduces explicit **start** and **end** node markers as Canvas text nodes (`runestone:start` and `runestone:end`). The previous implicit rule — "the node with no incoming edges is the start node" — is removed. This is a breaking change: existing workflows will fail pre-execution validation until they are updated.
+v0.3 introduces explicit **start** and **end** node markers as Canvas text nodes (`runestone:start` and `runestone:end`). The previous implicit rule — "the node with no incoming edges is the start node" — is removed.
+
+Furthermore, this release **deprecates and completely removes the `args` node type**. With the introduction of the explicit `start` node, the entry points of workflows are now clearly defined, making the `args` node redundant.
+
+These are breaking changes: existing workflows will fail pre-execution validation until they are updated.
 
 The new markers enable lightweight partial-execution debugging: move the `runestone:start` text node's outgoing edge to redirect the workflow entry point without deleting or re-adding nodes.
 
 ### Breaking Changes
 
 1. **Start node identification is now explicit.** Every workflow must contain exactly one Canvas text node whose trimmed content equals `runestone:start`. Workflows that relied on the implicit "no incoming edges" rule will be rejected with a validation error.
-2. **`args` nodes no longer satisfy the start-node requirement.** Previously, `args` nodes with no incoming edges coexisted alongside an implicit start node. They still run in parallel with the start node, but they no longer count as candidates for the start node itself.
-3. **New `end` node markers (optional).** Reaching any `runestone:end` text node halts the entire workflow gracefully — useful for debugging partial flows. Workflows without end markers behave as before (execution continues until every reachable branch terminates).
+2. **Complete removal of the `args` Node.** Notes specifying `runestone.type: args` are no longer recognized by the workflow engine and will trigger a pre-execution validation error.
+3. **Backward Compatibility for `args` variables.** To prevent existing scripts and command templates referencing `args` variables or `{{args.key}}` template values from throwing immediate runtime errors (such as `ReferenceError`), the executor will still inject an empty object `{}` for the `args` parameter during execution.
+4. **New `end` node markers (optional).** Reaching any `runestone:end` text node halts the entire workflow gracefully — useful for debugging partial flows. Workflows without end markers behave as before (execution continues until every reachable branch terminates).
 
 ### Migration Steps
 
 For every existing workflow `.canvas` file:
 
-1. Open the Canvas in Obsidian.
-2. Add a new **text node** to the canvas.
-3. Set its content to exactly `runestone:start` (no extra characters or whitespace).
-4. Draw an edge from this text node to the node that should be the entry point (typically the node that had no incoming edges in v0.2).
-5. Save the file and run the workflow to confirm it executes from the new start marker.
+1. **Explicit Start Node**:
+   - Open the Canvas in Obsidian.
+   - Add a new **text node** to the canvas.
+   - Set its content to exactly `runestone:start` (no extra characters or whitespace).
+   - Draw an edge from this text node to the node that should be the entry point (typically the node that had no incoming edges in v0.2).
+   - Save the file and run the workflow to confirm it executes from the new start marker.
+2. **Remove `args` Nodes**:
+   - Remove any existing `args` nodes from your Canvas.
+   - Refactor parameters or static data previously supplied by `args` nodes using either of the following:
+     - **Inline definition in script nodes**:
+       ```js
+       // Before: const items = args.items;
+       // After: Define variables directly inside your script
+       const items = ["Option A", "Option B", "Option C"];
+       ```
+     - **Using a dedicated configuration script node**:
+       Place a regular `script` node immediately after the `start` node to output your parameters, and reference them in downstream nodes using the `{{input[n]}}` syntax.
 
 Optionally, add `runestone:end` text nodes with incoming edges from the nodes where you want execution to halt. Multiple end markers are allowed.
 
