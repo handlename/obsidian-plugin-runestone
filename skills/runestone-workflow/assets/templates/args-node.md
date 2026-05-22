@@ -1,6 +1,0 @@
----
-runestone.type: args
----
-
-```javascript
-```

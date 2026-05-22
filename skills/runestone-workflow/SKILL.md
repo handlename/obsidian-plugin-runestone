@@ -3,7 +3,7 @@ name: runestone-workflow
 description: >
   Create and modify Runestone workflows for Obsidian Canvas.
   Use when the user asks to build, edit, or extend visual workflows
-  with exec, script, condition, or args nodes on Obsidian Canvas files.
+  with exec, script, or condition nodes on Obsidian Canvas files.
   Handles .canvas JSON files and node .md files with runestone frontmatter.
 triggers:
   - "create a workflow"
@@ -45,8 +45,6 @@ Things to know beyond the references:
 - Recommended spacing: 300px horizontal, 200px vertical
 - Layout convention: left-to-right, top-to-bottom flow
 - Node/edge IDs: random lowercase hex string (16 characters)
-- Args node code blocks support `await` for asynchronous operations (e.g., `app.vault.read()`) since they are executed via `AsyncFunction`. This is useful for dynamically building candidate lists or reading vault content at execution time
-- Prefer placing args nodes above their target script/condition node, connected with `fromSide: "bottom"`, `toSide: "top"`. When layout constraints require it (e.g., args feeding multiple distant nodes), `toSide: "left"` is acceptable. This keeps args connections separate from the main left-to-right flow
 - Do not set `color` on canvas nodes — Runestone uses colors for execution status visualization
 
 Minimal canvas JSON skeleton for quick reference:
@@ -99,8 +97,7 @@ After any operation, verify:
 - **Start node templates**: start nodes must not use template syntax (`{{input...}}`)
 - **Cycle exit**: every cycle has a condition node with an exit edge leading outside
 - **Condition edges**: at least one labeled outgoing edge; at most one unlabeled (default) edge
-- **Code block presence**: exec, script, condition, and args nodes must contain a code block
-- **Args isolation**: args nodes have no incoming edges; must have at least one outgoing edge; not connected to exec or other args nodes
+- **Code block presence**: exec, script, and condition nodes must contain a code block
 - **Edge consistency**: all `fromNode`/`toNode` values reference existing node IDs
 - **File existence**: all node `file` paths point to existing `.md` files
 
@@ -115,4 +112,3 @@ Available templates:
 - `exec-node.md`
 - `script-node.md`
 - `condition-node.md`
-- `args-node.md`

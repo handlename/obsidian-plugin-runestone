@@ -31,17 +31,6 @@ Runestone is an Obsidian plugin. It allows users to build and execute workflows 
 - Error if no labeled edge matches and no default edge exists
 - Output passes the input through as-is
 
-### REQ-NODE-004: args Node
-
-- Specify `runestone.type: args` in the note's Frontmatter
-- Write JavaScript in a code block in the note body
-- Has access to the Obsidian API (e.g. `app` object, `obsidian` module)
-- The return value must be a plain object
-- The return value is passed to the connected downstream node as a separate `args` parameter, not as part of `input`
-- Multiple args nodes connected to the same target are merged into a single `args` object
-- args nodes must not have incoming edges
-- args nodes must not connect to other args nodes
-
 ### REQ-NODE-005: start Node
 
 - Represented as a Canvas text node (Canvas `type: "text"`)
@@ -59,7 +48,7 @@ Runestone is an Obsidian plugin. It allows users to build and execute workflows 
 - It is not displayed in the Log Panel
 - Reaching any end node halts the entire workflow gracefully:
   - No new nodes are scheduled
-  - Already in-flight nodes (exec, script, condition, args) are allowed to complete naturally
+  - Already in-flight nodes (exec, script, condition) are allowed to complete naturally
   - The workflow terminates with status `completed` (not `failed`) once all in-flight nodes settle
 - A workflow may contain zero or more end nodes (see REQ-GRAPH-007)
 
@@ -73,7 +62,7 @@ Runestone is an Obsidian plugin. It allows users to build and execute workflows 
 
 - Input data can be referenced in Frontmatter values and note body using the `{{input[n].key}}` format
 - Even when a node has only one input, it is referenced as `{{input[0]}}`
-- Args data can be referenced in Frontmatter values and note body using the `{{args.key}}` format
+- Args data can be referenced in Frontmatter values and note body using the `{{args.key}}` format (always resolves to an empty object `{}` due to the deprecation of the args node, preserved for backward compatibility)
 - Args templates are available in exec nodes (command body, `exec.env` values, `exec.workdir`)
 
 ### REQ-DATA-003: Multiple Inputs
@@ -87,7 +76,7 @@ Runestone is an Obsidian plugin. It allows users to build and execute workflows 
 ### REQ-GRAPH-001: Canvas JSON Parsing
 
 - Parse `.canvas` file `nodes` and `edges` to build the graph
-- Canvas nodes of `type: "file"` are treated as workflow nodes (exec, script, condition, args)
+- Canvas nodes of `type: "file"` are treated as workflow nodes (exec, script, condition)
 - Canvas nodes of `type: "text"` are treated as workflow nodes only when their trimmed content equals the literal `runestone:start` or `runestone:end`
 - All other Canvas nodes are excluded from the workflow graph
 
