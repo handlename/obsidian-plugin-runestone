@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.3.0](https://github.com/handlename/obsidian-plugin-runestone/compare/0.2.0...0.3.0) - 2026-05-22
+- feat: add start/end node markers (v0.3) by @handlename in https://github.com/handlename/obsidian-plugin-runestone/pull/15
+- ci: limit push trigger to main to avoid duplicate runs by @handlename in https://github.com/handlename/obsidian-plugin-runestone/pull/17
+- feat: remove args node type and clean up related resources by @handlename in https://github.com/handlename/obsidian-plugin-runestone/pull/18
+
 ## [0.2.0](https://github.com/handlename/obsidian-plugin-runestone/compare/0.1.0...0.2.0) - 2026-05-16
 - feat: publish runestone-workflow as Claude Code plugin by @handlename in https://github.com/handlename/obsidian-plugin-runestone/pull/5
 - fix: add marketplace.json for Claude Code plugin install by @handlename in https://github.com/handlename/obsidian-plugin-runestone/pull/7
