@@ -57,7 +57,9 @@ Copy `main.js`, `styles.css`, and `manifest.json` to `<vault>/.obsidian/plugins/
 
 ### exec
 
-Executes a shell command. The first code block in the note body is run as a shell command. stdout must be valid JSON, which becomes the node output. Both `{{input[n].key}}` and `{{args.key}}` template syntax can be used in the command body, `exec.env` values, and `exec.workdir`.
+Executes a shell command. The first code block in the note body is run as a shell command. stdout must be valid JSON, which becomes the node output. The `{{input[n].key}}` template syntax can be used in the command body, `exec.env` values, and `exec.workdir`.
+
+> **Note**: `{{args.key}}` syntax is deprecated and always resolves to an empty object. It is preserved for backward compatibility only.
 
 ````markdown
 ---
@@ -65,13 +67,17 @@ runestone.type: exec
 ---
 
 ```bash
-echo '{"message": "hello {{args.name}}"}'
+echo '{"message": "hello {{input[0].name}}"}'
 ```
 ````
 
 ### script
 
-Executes JavaScript asynchronously. Available variables: `app` (Obsidian App instance), `obsidian` (the `obsidian` module, e.g. `Modal`, `Notice`, `SuggestModal`), `input` (array of outputs from upstream nodes), and `args` (empty `{}` for backward compatibility). The return value becomes the node output.
+Executes JavaScript asynchronously. Available variables: `app` (Obsidian App instance), `obsidian` (the `obsidian` module, e.g. `Modal`, `Notice`, `SuggestModal`), and `input` (array of outputs from upstream nodes).
+
+> **Note**: The `args` variable is deprecated and always equals `{}`. It is preserved for backward compatibility only.
+
+The return value becomes the node output.
 
 ````markdown
 ---
@@ -86,7 +92,11 @@ return { result };
 
 ### condition
 
-Evaluates JavaScript and returns a value that is stringified and matched against outgoing edge labels. Must have at least one labeled outgoing edge. An optional unlabeled edge serves as a default (like `default` in a switch statement) when no label matches. Available variables: `app`, `obsidian`, `input` (same as script), and `args` (empty `{}` for backward compatibility). The original `input` is passed through to the next node, not the condition's return value. Multiple labeled edges may point to the same target node.
+Evaluates JavaScript and returns a value that is stringified and matched against outgoing edge labels. Must have at least one labeled outgoing edge. An optional unlabeled edge serves as a default (like `default` in a switch statement) when no label matches. Available variables: `app`, `obsidian`, and `input` (same as script).
+
+> **Note**: The `args` variable is deprecated and always equals `{}`. It is preserved for backward compatibility only.
+
+The original `input` is passed through to the next node, not the condition's return value. Multiple labeled edges may point to the same target node.
 
 ````markdown
 ---
