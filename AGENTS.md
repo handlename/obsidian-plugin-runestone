@@ -20,7 +20,7 @@ src/
     parser.ts          # Canvas JSON parsing, frontmatter extraction, code block extraction
     validator.ts       # Pre-execution validation (start node, cycles, templates, etc.)
   template/
-    template.ts        # {{input[n].key}} and {{args.key}} template resolution
+    template.ts        # Template resolution (input and deprecated args)
   ui/
     canvas-visualizer.ts  # Real-time node/edge color updates on Canvas
     execution-state.ts    # Node status and result tracking
@@ -40,8 +40,8 @@ Five node types. Three are file-backed notes configured via `runestone.*` frontm
 
 | Type | Canvas form | Purpose | Input | Output |
 |------|-------------|---------|-------|--------|
-| `exec` | file note | Run shell command | `{{input[n]}}` and `{{args.key}}` templates in body/frontmatter | stdout parsed as JSON |
-| `script` | file note | Run JavaScript | `input`, `args`, `app`, `obsidian` variables | Return value as JSON |
+| `exec` | file note | Run shell command | `{{input[n]}}` templates in body/frontmatter | stdout parsed as JSON |
+| `script` | file note | Run JavaScript | `input`, `app`, `obsidian` variables | Return value as JSON |
 | `condition` | file note | Branch execution | Same as script | Return value matched to edge labels |
 | `start` | text node `runestone:start` | Mark workflow entry point | None | Empty input to successors |
 | `end` | text node `runestone:end` | Mark workflow halt point | Any | None (triggers graceful halt) |
@@ -55,6 +55,7 @@ Key execution rules:
 - Cycles allowed but require condition node with exit edge.
 - Nondirectional edges (`fromEnd: "none"`, `toEnd: "none"`) are excluded.
 - `runestone.onError: stop` (default) halts workflow; `continue` skips only the failed path.
+- `args` variable and `{{args.key}}` template are deprecated and empty `{}` (preserved for backward compatibility).
 
 ## Testing
 

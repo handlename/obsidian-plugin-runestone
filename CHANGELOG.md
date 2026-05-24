@@ -1,6 +1,13 @@
 # Changelog
 
 ## [0.3.0](https://github.com/handlename/obsidian-plugin-runestone/compare/0.2.0...0.3.0) - 2026-05-22
+
+> [!WARNING]
+> **Explicit Start Node Requirement**: Workflows now require an explicit `runestone:start` text node on the Canvas to define the entry point. The previous "implicit start" (node with no incoming edges) is no longer supported.
+
+> [!WARNING]
+> **Removal of `args` Node Type**: The `args` node type has been completely removed. Workflows containing `args` nodes will now fail validation. Existing scripts referencing `args` variables will still receive an empty object `{}` for backward compatibility, but users should migrate to using `script` nodes for configuration or static data.
+
 - feat: add start/end node markers (v0.3) by @handlename in https://github.com/handlename/obsidian-plugin-runestone/pull/15
 - ci: limit push trigger to main to avoid duplicate runs by @handlename in https://github.com/handlename/obsidian-plugin-runestone/pull/17
 - feat: remove args node type and clean up related resources by @handlename in https://github.com/handlename/obsidian-plugin-runestone/pull/18
